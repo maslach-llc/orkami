@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+
+# planning docs live in the notes vault (~/notes/dev/projects/orikami); this is a local symlink
+/todos
