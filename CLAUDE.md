@@ -1,10 +1,10 @@
-# CLAUDE.md — orikami conventions
+# CLAUDE.md — orkami conventions
 
 Origami for the web, as a library: a fold engine that lets a block of a page lie folded in its
 background as a shape of paper and unfold out of it, the way real paper does. Grown out of the
 motion system built for maslach.com in October 2026 (copied verbatim into `seed/` until each
-piece is ported) and meant to be open source: MIT, `github.com/el3vilen/orikami`, published to
-npm as `orikami`. maslach.com is its first consumer and its proving ground, not its owner: nothing
+piece is ported) and meant to be open source: MIT, `github.com/el3vilen/orkami`, published to
+npm as `orkami`. maslach.com is its first consumer and its proving ground, not its owner: nothing
 in `src/` may know about that site.
 
 Started 2026-10-28. The plan docs in `todos/` are the spec; this file is only the conventions.
@@ -18,7 +18,7 @@ Started 2026-10-28. The plan docs in `todos/` are the spec; this file is only th
   export, Lambert shading. No DOM, no framework, no runtime dependency, fully unit-tested.
 - `src/css/` — the CSS driver: turns a fold into flaps (two-sided, clipped, the backs the
   reflection of the sheet under them) driven by a registered `<angle>` property, plus the sheet
-  paint that makes a folded flap read as the page's own background. `orikami.css` ships beside it.
+  paint that makes a folded flap read as the page's own background. `orkami.css` ships beside it.
 - `src/three/` — the WebGL driver: the same fold as lit facets in three.js, nested groups hinged
   on the creases, one directional light and a shadow floor. `three` is an optional peer.
 - `src/vue/` — the Vue 3 adapter: the `v-unfold` directive, `<Unfold>` and `<Unfold3D>`

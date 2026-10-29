@@ -1,4 +1,4 @@
-# orikami
+# orkami
 
 Origami for the web. A block of a page lies folded in its background as a shape of paper and
 unfolds out of it when it is needed, the way real paper does: faces turn on the creases they
@@ -10,14 +10,14 @@ paper folds, and what reads as paper on a screen, lands in `docs/study/` first.
 
 ## What it will be
 
-- `orikami` — the core: a fold model (faces, creases, a hinge tree), a library of named folds
+- `orkami` — the core: a fold model (faces, creases, a hinge tree), a library of named folds
   (book, lift, blintz, diagonal, cupboard, accordion, waterbomb, preliminary, ...), FOLD-format
   import and export, and a schedule that gives every crease its angle at any time. No runtime
   dependency, no DOM.
-- `orikami/css` — the CSS driver: two-sided clipped flaps driven by a registered `<angle>`
+- `orkami/css` — the CSS driver: two-sided clipped flaps driven by a registered `<angle>`
   property, and the sheet paint that makes a folded flap read as the page's own background.
-- `orikami/three` — the WebGL driver: the same fold as lit facets in three.js.
-- `orikami/vue` — the Vue 3 adapter: `v-unfold`, `<Unfold>`, `<Unfold3D>`, `useFold()`.
+- `orkami/three` — the WebGL driver: the same fold as lit facets in three.js.
+- `orkami/vue` — the Vue 3 adapter: `v-unfold`, `<Unfold>`, `<Unfold3D>`, `useFold()`.
 
 ## Development
 

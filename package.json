@@ -1,11 +1,11 @@
 {
-  "name": "orikami",
+  "name": "orkami",
   "version": "0.0.0",
   "license": "MIT",
   "description": "Origami for the web: a fold engine that lets blocks of a page unfold out of their background like real paper, with CSS and WebGL drivers and a Vue adapter.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/el3vilen/orikami.git"
+    "url": "git+https://github.com/el3vilen/orkami.git"
   },
   "type": "module",
   "files": [
