@@ -3,7 +3,7 @@
 Origami for the web, as a library: a fold engine that lets a block of a page lie folded in its
 background as a shape of paper and unfold out of it, the way real paper does. Grown out of the
 motion system built for maslach.com in October 2026 (copied verbatim into `seed/` until each
-piece is ported) and meant to be open source: MIT, `github.com/el3vilen/orkami`, published to
+piece is ported) and meant to be open source: MIT, `github.com/maslach-llc/orkami`, published to
 npm as `orkami`. maslach.com is its first consumer and its proving ground, not its owner: nothing
 in `src/` may know about that site.
 
