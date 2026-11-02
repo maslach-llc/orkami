@@ -134,6 +134,12 @@ export function onEdge(pts: Pt[], a: Pt, b: Pt, tol: number): boolean {
   return false
 }
 
+/** Whether the segment a-b lies inside the polygon or on its outline (a hinge on a page face, D13). Checks the ends and the midpoint, which is exact for a convex page. */
+export function onOrInside(pts: Pt[], a: Pt, b: Pt, tol: number): boolean {
+  const ok = (p: Pt) => inside(p, pts) || pts.some((q, i) => onSegment(p, q, pts[(i + 1) % pts.length]!, tol))
+  return ok(a) && ok(b) && ok([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2])
+}
+
 export function convex(pts: Pt[]): boolean {
   let s = 0
   for (let i = 0; i < pts.length; i++) {
@@ -205,7 +211,8 @@ export function validate(fold: Fold): string[] {
     if (!ch) problems.push(`crease ${c.id}: child face ${c.child} does not exist`)
     if (c.parent === c.child) problems.push(`crease ${c.id} joins face ${c.parent} to itself`)
     if (Math.hypot(c.b[0] - c.a[0], c.b[1] - c.a[1]) < tol) problems.push(`crease ${c.id} has no length`)
-    if (p && !onEdge(p.pts, c.a, c.b, tol)) problems.push(`crease ${c.id} is not on an edge of its parent ${c.parent}`)
+    // The page is the ground, not a piece of the sheet: a face may be hinged on it anywhere inside it (D13)
+    if (p && !(p.page ? onOrInside(p.pts, c.a, c.b, tol) : onEdge(p.pts, c.a, c.b, tol))) problems.push(`crease ${c.id} is not on ${p.page ? 'the page' : 'an edge of its parent'} ${c.parent}`)
     if (ch && !onEdge(ch.pts, c.a, c.b, tol)) problems.push(`crease ${c.id} is not on an edge of its child ${c.child}`)
     if (c.assignment === 'F' && c.closed !== 0) problems.push(`crease ${c.id} is flat but closes at ${c.closed}`)
     if (c.closed < 0 || c.closed > Math.PI + 1e-9) problems.push(`crease ${c.id} closes outside [0, pi]`)

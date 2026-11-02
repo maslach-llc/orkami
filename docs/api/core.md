@@ -3,7 +3,7 @@
 `import { ... } from 'orkami'`: everything under `src/core/` and the glyphs under `src/glyphs/`.
 Pure TypeScript, no DOM, no dependency. Coordinates are page coordinates: x right, y down, origin
 at the sheet's top left, z toward the visitor; angles in radians, valley positive (FOLD's sign).
-The model is fixed by `docs/design/01-decisions.md` (D1 to D11) and the study in `docs/study/`.
+The model is fixed by `docs/design/01-decisions.md` (D1 to D13) and the study in `docs/study/`.
 One line per export; the file each lives in is the heading.
 
 ## affine.ts: plane maps
@@ -30,10 +30,10 @@ One line per export; the file each lives in is the heading.
 - `Crease`: `{ id, a, b, assignment: 'M' | 'V' | 'F', parent, child, closed, closing? }`; `closed` is the angle magnitude the child sits at when fully folded (`Math.PI` for a flap lying flat over, `0` for F); the assignment gives the sign; `closing` marks a crease left out of the hinge tree (D3).
 - `Closure`: `{ vertex, closing, solved, across }`: an interior vertex's loop: the closing crease, the creases whose shared magnitude is solved so it closes, and the unit direction in the sheet the gap is measured along (the mirror plane's normal) (D10).
 - `Fold`: `{ name?, sheet, faces, creases, root, schedule?, closures?, suits?, extra? }`; `suits` from D7's table; `extra` holds FOLD keys the engine does not read.
-- `validate(fold)`: the problems, as strings; empty when sound: unique ids, the non-closing creases a tree rooted at `root` reaching every face, every crease on an edge both its faces share, faces inside the sheet, never overlapping, tiling it unless `cut`, F creases closing at 0, closing creases backed by a closure.
+- `validate(fold)`: the problems, as strings; empty when sound: unique ids, the non-closing creases a tree rooted at `root` reaching every face, every crease on an edge both its faces share (a crease hinged on a `page` face need only lie inside or on it, D13), faces inside the sheet, never overlapping, tiling it unless `cut`, F creases closing at 0, closing creases backed by a closure.
 - `assertValid(fold)`: `validate`, throwing on the first problem; returns the fold.
 - `sign(assignment)`: +1 valley, -1 mountain, 0 flat. `face(fold, id)`, `crease(fold, id)`, `treeCreases(fold)`, `tolerance(fold)`.
-- Polygon helpers: `area` (signed), `centroid`, `cross` (2D), `onSegment`, `onEdge`, `convex`, `inside`, `overlaps`.
+- Polygon helpers: `area` (signed), `centroid`, `cross` (2D), `onSegment`, `onEdge`, `onOrInside` (a segment inside a polygon or on its outline), `convex`, `inside`, `overlaps`.
 
 ## tree.ts: the hinge tree
 
@@ -53,6 +53,7 @@ One line per export; the file each lives in is the heading.
 - `together(fold)`: every crease from 0, Origami Simulator's slider; the only schedule a coupled base takes.
 - `sequence(fold, order, { step, base })`: the creases in `order` (the unfold order: outermost flap first) start `step` ms apart and overlap: a hand's gesture; over sibling flaps, the seed's stagger.
 - `stepwise(fold, order, { gap, base })`: each crease starts when the one before has finished plus `gap` ms: a list read one step at a time.
+- `timed(fold, starts, { base })`: each crease starting at its given ms (unlisted ones at 0), running for its reach's duration: the builder the three above are cases of, for a choreography of its own (the word fold's letters).
 - `progress(entry, t)`: the eased progress. `angleAt(fold, creaseId, schedule, t)`: `sign * closed * (1 - ease(progress))`.
 
 ## pose.ts: the pose at t
@@ -124,3 +125,8 @@ Each takes a rectangle and returns a validated `Fold` with `name`, `suits` and i
 - `GLYPHS`, `glyph(char)`: M, A, S, L, C, H. `HEIGHT` 270, `STRIP` 72, `GAP` 40, `MARK_GAP` 52, `KERN` (`LA: -18`).
 - `layout(text = 'MASLACH')`: `Word` `{ text, width, height, letters, faces }` placing the glyphs in a line as the seed did; each `PlacedFace` carries the face, its crease, the absolute polygon and hinge, and the slot.
 - `points(pts)`: an SVG `points` string.
+- `wordFold(text = 'MASLACH', { packet, letterStep, step, base }?)`: the word as one `Fold` (D13): the root a `page` face (the word's box), each letter's root facet hung on it by its glyph's own hinge on a valley closing at `packet` (`PACKET`, 0.08 pi; 0 lays the packets flat), each letter's facets its glyph's fold beneath, ids `wordId(letter, id)` (`'0.leg-left'`, the root hinge `'0.hinge'`). Schedule `timed`: letter i at `i * letterStep` ms (`LETTER_STEP` 70), its k-th facet's crease `k * step` later (`FACET_STEP` 60). The CSS driver does not mount it yet (a page root with more than one child); `toFOLD` of it does not round-trip (the page face's outline is not a crease pattern edge). `WordFoldOptions` the options.
+
+## glyphs/svg.ts: the flat word
+
+- `wordSvg(text = 'MASLACH', { style, shadow, grain, id, label }?)`: `{ width, height, viewBox, inner, markup }`: the resting lockup as SVG markup, no DOM: every facet a polygon in its slot's print gradient, the crease gradient on shade facets (`creaseGradient`), a hairline per crease (`onLit` / `onShade` by the facet's slot, non-scaling, `crease.width`), the style's grain multiplied over the silhouette, and the resting shadow pair from `shadowAt(0)` (Figma blur halved to `stdDeviation`). `id` prefixes the ids (one per instance on a page); a tone may be any CSS color. `SvgOptions`, `WordSvg` the types.

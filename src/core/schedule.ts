@@ -103,6 +103,21 @@ function normalize(starts: Map<CreaseId, number>, durs: Map<CreaseId, number>, b
   return { creases, total }
 }
 
+/**
+ * Creases starting at given times, in ms from the start of the motion (a crease not listed
+ * starts at 0), each running for its reach's duration: the builder the three above are cases
+ * of, for a choreography of its own (the wordmark's letters, D13).
+ */
+export function timed(fold: Fold, starts: Record<CreaseId, number>, { base = BASE }: Options = {}): Schedule {
+  const durs = durations(fold, base)
+  const at = new Map([...durs.keys()].map(id => [id, 0]))
+  for (const [id, ms] of Object.entries(starts)) {
+    if (!durs.has(id)) throw new Error(`no tree crease ${id}`)
+    at.set(id, ms)
+  }
+  return normalize(at, durs, base)
+}
+
 /** Every crease at once, Origami Simulator's slider: each starts at 0 and runs for its own duration. */
 export function together(fold: Fold, { base = BASE }: Options = {}): Schedule {
   const durs = durations(fold, base)
