@@ -19,6 +19,9 @@ paper folds, and what reads as paper on a screen, lands in `docs/study/` first.
 - `orkami/three` — the WebGL driver: the same fold as lit facets in three.js.
 - `orkami/vue` — the Vue 3 adapter: `v-unfold`, `<Unfold>`, `<Unfold3D>`, `useFold()`.
 
+The study it is built on is in [`docs/study/`](docs/study/): how paper folds, what reads as paper
+on a screen, and what already exists; the vocabulary and decisions are in [`docs/design/`](docs/design/).
+
 ## Development
 
 ```bash
