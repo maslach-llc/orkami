@@ -19,6 +19,10 @@
       "types": "./dist/css/index.d.ts",
       "import": "./dist/css/index.js"
     },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
     "./orkami.css": "./dist/orkami.css"
   },
   "files": [
@@ -32,6 +36,15 @@
     "verify": "npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vue": "^3.5.44"
+  },
+  "peerDependencies": {
+    "vue": "^3.5"
+  },
+  "peerDependenciesMeta": {
+    "vue": {
+      "optional": true
+    }
   }
 }
