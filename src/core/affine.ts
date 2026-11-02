@@ -29,5 +29,13 @@ export function direction(a: Pt, b: Pt): Pt {
   return [dx / l, dy / l]
 }
 
+/** The inverse map, so that compose(m, invert(m)) is the identity; throws on a map that collapses the plane. */
+export function invert(m: Affine): Affine {
+  const det = m[0] * m[3] - m[1] * m[2]
+  if (Math.abs(det) < 1e-12) throw new Error('the map has no inverse')
+  const a = m[3] / det, b = -m[1] / det, c = -m[2] / det, d = m[0] / det
+  return [a, b, c, d, -(a * m[4] + c * m[5]), -(b * m[4] + d * m[5])]
+}
+
 /** The CSS transform for a map. */
 export const toCss = (m: Affine) => `matrix(${m.map(n => +n.toFixed(6)).join(', ')})`
