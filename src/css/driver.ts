@@ -73,6 +73,12 @@ const num = (n: number) => String(+n.toFixed(4))
 const px = (n: number) => `${num(n)}px`
 const polygon = (pts: Pt[]) => `polygon(${pts.map(([x, y]) => `${px(x)} ${px(y)}`).join(', ')})`
 const mirrorX = (w: number) => (pts: Pt[]): Pt[] => pts.map(([x, y]) => [w - x, y])
+/** The bounding box of a polygon. */
+const bounds = (pts: Pt[]) => {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1])
+  const x = Math.min(...xs), y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+}
 
 /** A CSS linear-gradient from point `from` to point `to` in a w x h box, stops at fractions of that run, each a black of the given alpha (a number or a CSS value). */
 function gradient(from: Pt, to: Pt, stops: { offset: number; alpha: string }[], w: number, h: number): string {
@@ -166,14 +172,36 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   container.setAttribute('aria-hidden', 'true')
   if (!lifted) container.style.perspective = px(P)
 
-  // --- paper: the sides of a face
+  // --- paper: the sides of a face. A side is a box the size of its face's bounds, clipped to
+  // the face in its own coordinates, with the sheet-sized paper inside it shifted back into the
+  // sheet's frame. A side as big as the sheet with the face clipped out of it is the same
+  // picture, but Chromium's software compositor (no GPU: headless, a blocklisted driver) culls
+  // a clip-path far from the box's origin on a 3D-transformed layer, and the blintz lost three
+  // of its four corners mid-unfold; the face-sized box is also less to raster.
   const sideFor = (face: Face, crease: Crease | null, back: boolean): HTMLElement => {
     const side = doc.createElement('div')
     side.className = `ori-side ${back ? 'back' : 'front'}`
     side.dataset.face = face.id
     const pts = back ? mirrorX(W)(face.pts) : face.pts
     const full = face.pts.length === 4 && face.pts.every(([x, y]) => (x === 0 || x === W) && (y === 0 || y === H))
-    if (!full) side.style.clipPath = polygon(pts)
+    const box = full ? { x: 0, y: 0, w: W, h: H } : bounds(pts)
+    const local = (p: Pt[]): Pt[] => p.map(([x, y]) => [x - box.x, y - box.y])
+    if (!full) {
+      side.style.left = px(box.x)
+      side.style.top = px(box.y)
+      side.style.width = px(box.w)
+      side.style.height = px(box.h)
+      side.style.clipPath = polygon(local(pts))
+      // The back turns about the sheet's vertical midline, as a sheet-sized side would
+      if (back) side.style.transformOrigin = `${px(W / 2 - box.x)} ${px(H / 2 - box.y)}`
+    }
+    const paper = doc.createElement('div')
+    paper.className = 'ori-face'
+    paper.style.left = px(-box.x)
+    paper.style.top = px(-box.y)
+    paper.style.width = px(W)
+    paper.style.height = px(H)
+    side.append(paper)
     const layers: string[] = []
     if (back) {
       // The sheet under the face, placed where the face lies folded flat: the ink carries the
@@ -190,7 +218,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
       ink.style.transformOrigin = `${px(-ox)} ${px(-oy)}`
       ink.style.transform = toCss(map)
       ink.style.backgroundPosition = `calc(var(--ori-sx, 0px) - ${px(ox)}) calc(var(--ori-sy, 0px) - ${px(oy)})`
-      side.append(ink)
+      paper.append(ink)
     } else if (face.slot) {
       const tone = slotTone(style, face.slot)
       layers.push(`linear-gradient(${tone.top}, ${tone.bottom})`)
@@ -199,23 +227,24 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
         layers.push(gradient(g.from, g.to, g.stops.map(s => ({ offset: s.offset, alpha: num(s.opacity) })), W, H))
       }
     } else {
-      background(side)
+      background(paper)
     }
     if (crease && (crease.assignment === 'V') === !back) {
       // The crease going into shadow as the fold closes (02, cue 8, the dynamic part): on the
       // side the fold closes on, the fronts for a valley, the backs for a mountain; the outside
-      // stays clean, so a block lying closed on the page is still the page
+      // stays clean, so a block lying closed on the page is still the page. It rides the
+      // side's ::after, so it is drawn in the side's own box
       const mid: Pt = [(crease.a[0] + crease.b[0]) / 2, (crease.a[1] + crease.b[1]) / 2]
       const c = centroid(face.pts)
       const to: Pt = [mid[0] + (c[0] - mid[0]) * 0.6, mid[1] + (c[1] - mid[1]) * 0.6]
       const m = back ? mirrorX(W) : (p: Pt[]) => p
-      const [f, t] = m([mid, to])
-      side.style.setProperty('--ori-crease', gradient(f!, t!, [{ offset: 0, alpha: 'var(--ori-occ)' }, { offset: 1, alpha: '0' }], W, H))
+      const [f, t] = local(m([mid, to]))
+      side.style.setProperty('--ori-crease', gradient(f!, t!, [{ offset: 0, alpha: 'var(--ori-occ)' }, { offset: 1, alpha: '0' }], box.w, box.h))
     }
     if (layers.length) {
-      side.style.backgroundImage = ['var(--ori-grain)', ...layers].join(', ')
-      side.style.backgroundSize = ['96px 96px', ...layers.map(() => '100% 100%')].join(', ')
-      side.classList.add('ori-print')
+      paper.style.backgroundImage = ['var(--ori-grain)', ...layers].join(', ')
+      paper.style.backgroundSize = ['96px 96px', ...layers.map(() => '100% 100%')].join(', ')
+      paper.classList.add('ori-print')
     }
     return side
   }

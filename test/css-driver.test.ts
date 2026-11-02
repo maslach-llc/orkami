@@ -16,6 +16,8 @@ const byFace = (el: FakeElement, id: string) => el.querySelectorAll(`.ori-flap[d
 const vertices = (clip: string) => clip.replace(/^polygon\(|\)$/g, '').split(',').length
 const parsePolygon = (clip: string): Pt[] => clip.replace(/^polygon\(|\)$/g, '').split(',').map(s => s.trim().split(' ').map(parseFloat) as Pt)
 const parseMatrix = (t: string): Affine => t.replace(/^matrix\(|\)$/g, '').split(',').map(Number) as Affine
+/** A side's clip polygon back in host px: its own box's offset added. */
+const inHost = (side: FakeElement): Pt[] => parsePolygon(side.style.clipPath!).map(([x, y]) => [x + parseFloat(side.style.left || '0'), y + parseFloat(side.style.top || '0')])
 const near = (a: number, b: number, eps = 1e-3) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`)
 
 test('the blintz mounts four flaps, each clipped to its corner and hinged at its crease', () => {
@@ -29,8 +31,8 @@ test('the blintz mounts four flaps, each clipped to its corner and hinged at its
     const c = creaseOf(fold, `c${['tl', 'tr', 'br', 'bl'].indexOf(id) + 1}`)
     assert.equal(flap.style.getPropertyValue('transform-origin'), `${c.a[0]}px ${c.a[1]}px`)
     const front = flap.querySelectorAll('.ori-side.front')[0]!, back = flap.querySelectorAll('.ori-side.back')[0]!
-    assert.deepEqual(parsePolygon(front.style.clipPath!), faceOf(fold, id).pts)
-    assert.deepEqual(parsePolygon(back.style.clipPath!), sidePolygon(fold, id, true))
+    assert.deepEqual(inHost(front), faceOf(fold, id).pts)
+    assert.deepEqual(inHost(back), sidePolygon(fold, id, true))
     assert.equal(vertices(front.style.clipPath!), 3)
     near(deg(flap.style.getPropertyValue('--ori-a')), 180)
     assert.equal(flap.style.getPropertyValue('--ori-step'), '1')
@@ -99,6 +101,34 @@ test('every generated clip-path has exactly the face its vertex count, for every
       const clip = side.style.clipPath
       if (!clip) { assert.equal(face.pts.length, 4, `${n}: ${face.id} unclipped but not the full box`); continue }
       assert.equal(vertices(clip), face.pts.length, `${n}: ${face.id}`)
+    }
+    h.destroy()
+  }
+})
+
+test('each side is a box the size of its face, its clip and paper in that box, for every named fold', () => {
+  // A sheet-sized side with the face clipped out of it far from the box's origin is culled by
+  // Chromium's software compositor on a 3D-transformed flap: the blintz lost three corners
+  for (const n of Object.keys(named) as NamedFold[]) {
+    const { el } = block(240, 240)
+    const fold = named[n](240, 240)
+    const h = mount(el, fold)
+    for (const side of el.querySelectorAll('.ori-side')) {
+      const back = side.classList.contains('back')
+      const pts = sidePolygon(fold, side.dataset.face!, back)
+      const paper = side.querySelectorAll('.ori-face')[0]!
+      assert.ok(paper, `${n}: ${side.dataset.face} has its paper`)
+      assert.equal(paper.style.width, '240px')
+      if (!side.style.clipPath) continue
+      const x0 = Math.min(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1]))
+      near(parseFloat(side.style.left!), x0); near(parseFloat(side.style.top!), y0)
+      near(parseFloat(side.style.width!), Math.max(...pts.map(p => p[0])) - x0)
+      near(parseFloat(side.style.height!), Math.max(...pts.map(p => p[1])) - y0)
+      near(parseFloat(paper.style.left!), -x0); near(parseFloat(paper.style.top!), -y0)
+      const got = inHost(side)
+      got.forEach((p, i) => { near(p[0], pts[i]![0]); near(p[1], pts[i]![1]) })
+      // The back still turns about the sheet's vertical midline
+      if (back) assert.equal(side.style.transformOrigin, `${+(120 - x0).toFixed(4)}px ${+(120 - y0).toFixed(4)}px`)
     }
     h.destroy()
   }
@@ -178,13 +208,14 @@ test('a lift turns the element itself, with its back and shade inside', () => {
 test('a bare element is painted with the sheet; one with a background keeps it on its fronts', () => {
   const bare = block(200, 200)
   mount(bare.el, cupboard(200, 200))
-  for (const front of bare.el.querySelectorAll('.ori-side.front')) assert.ok(front.classList.contains('ori-paper'))
+  const paperOf = (side: FakeElement) => side.querySelectorAll('.ori-face')[0]!
+  for (const front of bare.el.querySelectorAll('.ori-side.front')) assert.ok(paperOf(front).classList.contains('ori-paper'))
   const card = block(200, 200, { backgroundColor: 'rgb(10, 20, 30)', backgroundImage: 'linear-gradient(red, blue)' })
   mount(card.el, cupboard(200, 200))
   for (const front of card.el.querySelectorAll('.ori-side.front')) {
-    assert.ok(!front.classList.contains('ori-paper'))
-    assert.equal(front.style.backgroundColor, 'rgb(10, 20, 30)')
-    assert.equal(front.style.backgroundImage, 'linear-gradient(red, blue)')
+    assert.ok(!paperOf(front).classList.contains('ori-paper'))
+    assert.equal(paperOf(front).style.backgroundColor, 'rgb(10, 20, 30)')
+    assert.equal(paperOf(front).style.backgroundImage, 'linear-gradient(red, blue)')
   }
 })
 
