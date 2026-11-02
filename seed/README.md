@@ -6,12 +6,9 @@ is imported by `src/`; each file is deleted once its replacement lands in `src/`
 04 in the planning tree), and the folder goes with the last one.
 
 - `utils/origami.ts` — ported: the wordmark's facet trees and `layout()` now live in `src/glyphs/` (doc 02).
-- `utils/sheet.ts`, `utils/sheetPaint.ts` — the page's sheet (seven large facets) and the paint
-  that puts the sheet under any element so a folded flap is the background until it moves.
-- `unfold.ts` — the `v-unfold` directive: hinges `lift`, `top|bottom|left|right`, `blintz`,
-  `diagonal`; stagger, refold and `open` signal; the two-sided flaps with reflected backs.
-- `origami.css` — the tokens, the registered `--ori-a` angle, and the fold rules the directive
-  relies on (sections 2, 2b, 2c, 2d).
-- `components/` — the Vue side: the CSS unfold (`OrigamiUnfold.vue`, per-facet
-  `OrigamiUnfoldFace.vue`), the three.js unfold (`OrigamiUnfold3D.vue`), the flat SVG wordmark
-  and mark, the sheet, and the two hero components that drive them on the home page.
+- `utils/sheet.ts`, `utils/sheetPaint.ts`, `unfold.ts`, `origami.css`, `components/OrigamiUnfold.vue`,
+  `OrigamiUnfoldFace.vue`, `OrigamiSheet.vue`, `HeroServices.vue` — ported: the CSS driver, the
+  sheet paint and the Vue adapter now live in `src/css/` and `src/vue/` (doc 03).
+- `components/` — what remains for doc 04: the three.js unfold (`OrigamiUnfold3D.vue`), the flat
+  SVG wordmark and mark (`OrigamiWord.vue`, `OrigamiMark.vue`), and the hero that drives them on
+  the home page (`HeroBrand.vue`).

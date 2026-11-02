@@ -12,6 +12,7 @@ One line per export; the file each lives in is the heading.
 - `Affine`: `[a, b, c, d, e, f]` in CSS `matrix()` order; `IDENTITY`.
 - `compose(p, q)`: p after q. `apply(m, pt)`. `toCss(m)`: the `matrix()` string.
 - `reflect(h, u)`: reflection across the line through `h` along unit `u`: where a flap's content lands folded flat over that crease.
+- `invert(m)`: the inverse map (`compose(m, invert(m))` is the identity); throws on a map that collapses the plane.
 - `direction(a, b)`: unit direction from a to b.
 
 ## space.ts: space geometry
@@ -39,6 +40,10 @@ One line per export; the file each lives in is the heading.
 - `hingeTree(fold)`: `{ order, parent, hinge, children, chain }`: faces parent first from the root, each face's parent and hinge crease, the creases hinged on each face, and the root-first chain of creases to each face. A driver nests transforms down `order` or composes `chain`.
 - `flap(fold, creaseId)`: the child face and everything hinged beyond it.
 - `reach(fold, creaseId)`: the flap's farthest point from the crease line, in sheet units. Sets the duration (D4) and the shadow's height (D5).
+
+## stack.ts: the flat-state stacking (D12)
+
+- `stackOrder(fold)`: `{ layer, up, step }`: each face's integer layer in the closed state (root 0, positive toward the visitor; a pleat's panels 0, 1, 2, ...), which way each face's front faces when closed (`up`, +1 like the root, -1 face down), and each tree crease's step in its parent's frame (+1 over for a valley closing at pi, -1 under for a mountain, 0 for a crease that does not close flat). The same rule `toFOLD` writes as `faceOrders`, composed down the tree; the CSS driver separates coplanar faces by `layer` so they never fight for the same pixels.
 
 ## schedule.ts: time
 

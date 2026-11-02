@@ -219,3 +219,25 @@ builder rather than a magic step.
 
 **Rules out.** Per-crease wall-clock values in the schedule; a per-crease easing option
 (every entry takes the one `paper` curve unless code sets another).
+
+## D12. Coplanar faces are separated by their flat-state layer
+
+**Decision.** `stackOrder(fold)` gives every face an integer layer in the closed state: the root
+is 0, a child closing at pi lies one layer over its parent for a valley and one under for a
+mountain (over meaning the side of the parent's normal, so a pleat's panels come out 0, 1, 2, ...
+as they stack), composed down the hinge tree from the same rule `toFOLD` writes as `faceOrders`.
+A crease that does not close flat steps 0. The CSS driver lifts each flap by its crease's step
+times a fixed epsilon (`--ori-layer`, half a pixel) along its parent's normal, before the hinge
+rotation, so at t = 0 the stacked faces sit at distinct depths in the order the paper has them,
+and at t = 1 the tiling faces are offset by less than a pixel of depth, below what perspective
+can show. The back of every face sits a ply (`--ori-ply`, a quarter pixel) behind its front.
+
+**Reason.** Rigid paper has no thickness, so at the two rest states every stacked face is
+coplanar with the one it lies on, and a compositor that sorts 3D layers by depth has nothing to
+go on: it draws whichever it likes, and the visitor sees the wrong face flicker through. The
+epsilon has to come from the stacking, not from the fold: a per-fold tweak would be wrong the
+moment a pattern is imported, and the sign matters (a mountain child goes under its parent).
+
+**Rules out.** Per-fold or per-driver z nudges; a thickness in the model (faces stay in the
+sheet plane, the epsilon is the driver's); an epsilon large enough to show as a seam at t = 1
+(the layer step stays under a pixel, so a six-layer pleat is still within three pixels of depth).

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { apply, compose, direction, reflect, IDENTITY, type Pt } from '../src/core/affine.ts'
+import { apply, compose, direction, invert, reflect, IDENTITY, type Pt } from '../src/core/affine.ts'
 
 const near = (a: Pt, b: Pt) => assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-9, `${a} is not ${b}`)
 
@@ -27,4 +27,14 @@ test('compose applies the right map first', () => {
   near(apply(compose(flipX, shift), [1, 0]), [-11, 0])
   near(apply(compose(shift, flipX), [1, 0]), [9, 0])
   near(apply(IDENTITY, [4, 2]), [4, 2])
+})
+
+test('invert undoes a map, and a reflection is its own inverse', () => {
+  const m: [number, number, number, number, number, number] = [2, 1, 0.5, 3, 7, -4]
+  const back = compose(m, invert(m))
+  near(apply(back, [3, 9]), [3, 9])
+  near(apply(compose(invert(m), m), [-2, 5]), [-2, 5])
+  const r = reflect([3, 1], direction([3, 1], [7, 4]))
+  assert.ok(invert(r).every((v, i) => Math.abs(v - r[i]!) < 1e-9))
+  assert.throws(() => invert([1, 2, 2, 4, 0, 0]))
 })

@@ -1,0 +1,172 @@
+/* orkami.css: the tokens, the registered angle, and the rules the CSS driver's flaps rely on.
+   Import it once; the driver (orkami/css) sets the classes and the custom properties.
+
+   1. Tokens. The page's paper (--ori-bg, --ori-ink, --ori-accent: what paintSheet draws the
+      default sheet from; a host sets its own), the one easing, the grain, the light (the
+      driver writes the style's values on each host), and the two depths that keep coplanar
+      paper apart (D12): --ori-layer per stacked layer, --ori-ply between a face's two sides.
+   2. The angle. --ori-a is a registered <angle> so a transition can move it and the tone can
+      take its sine and cosine; it inherits, so a flap's sides read their flap's angle.
+   3. The fold. .ori-host is the element; .ori-fold the layer inside it holding the ground
+      (.ori-ground, the sheet where a face is not yet), the creases (.ori-creases, hairlines
+      that come in at the settle) and the flaps (.ori-flap, nested by parent, each with a
+      .front and a .back and its cast shadow in the parent's plane). A lift turns the host
+      itself (.ori-lifted) with its back and shade inside .ori-fold.
+   4. The paper. .ori-paper shows the page's sheet through its own box, placed by
+      --ori-sx/--ori-sy (trackSheet); the back of a face wears it under a matrix (.ori-ink).
+   5. Tone. Each side's ::after darkens or lightens it by the Lambert factor of its normal under
+      the one light, computed in CSS from the angle (docs/study/02-paper-on-a-screen.md, cue 1),
+      plus the crease's darkening as the fold closes (cue 8).
+   6. Rest. Landed, the flaps step aside and the element's own content shows flat with the
+      creases over it. Reduced motion and print show the content flat from the start.
+
+   Rule: a host must not clip. overflow other than visible on it clips the paper swinging past
+   its box; put the clip on a wrapper outside, or on the content inside. */
+
+@property --ori-a { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+
+:root {
+  --ori-bg: #f3f4f1;
+  --ori-ink: #0e1726;
+  --ori-accent: #8a8f99;
+  --ori-paper: var(--ori-bg);
+  --ori-ease: cubic-bezier(.22, .75, .25, 1);
+  --ori-layer: .5px;
+  --ori-ply: .25px;
+  /* The light and the Lambert factors of the default style; the driver sets each host's own */
+  --ori-lx: -0.346;
+  --ori-ly: -0.538;
+  --ori-lz: 0.769;
+  --ori-ka: .35;
+  --ori-kd: .85;
+  --ori-occlusion: .12;
+  /* Paper grain: fractal noise multiplied over every painted face (the default style's values) */
+  --ori-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 .14'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* The same grain at the strength the sheet wears it */
+  --ori-grain-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 .056'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='96' height='96' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ori-bg: #12151b;
+    --ori-ink: #e6e8ee;
+    --ori-accent: #7d8699;
+  }
+}
+
+/* 3. The fold */
+.ori-fold {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+.ori-flap {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--ori-step, 0) * var(--ori-layer))) rotate3d(var(--ori-ux, 1), var(--ori-uy, 0), 0, var(--ori-a));
+  transition: --ori-a var(--ori-dur, 640ms) var(--ori-ease) calc(var(--ori-delay, 0ms) + var(--ori-end, 0ms));
+}
+.is-open .ori-flap { transition-delay: calc(var(--ori-delay, 0ms) + var(--ori-start, 0ms)); }
+/* A lift: the element is the flap, turning on its hinge with the vanishing point at its own center */
+.ori-lifted {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transform: perspective(var(--ori-p, 1000px)) translateZ(calc(var(--ori-step, 0) * var(--ori-layer))) translate3d(var(--ori-hx, 0px), var(--ori-hy, 0px), 0) rotate3d(var(--ori-ux, 1), var(--ori-uy, 0), 0, var(--ori-a)) translate3d(calc(-1 * var(--ori-hx, 0px)), calc(-1 * var(--ori-hy, 0px)), 0);
+  transition: --ori-a var(--ori-dur, 640ms) var(--ori-ease) calc(var(--ori-delay, 0ms) + var(--ori-end, 0ms)) !important;
+}
+.ori-lifted.is-open { transition-delay: calc(var(--ori-delay, 0ms) + var(--ori-start, 0ms)) !important; }
+/* set(t) moves with no motion */
+.ori-scrub .ori-flap, .ori-lifted.ori-scrub, .ori-scrub .ori-creases { transition: none !important; }
+
+.ori-side {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+.ori-side.back { transform: rotateY(180deg) translateZ(var(--ori-ply)); }
+.ori-ink { position: absolute; }
+.ori-print { background-blend-mode: multiply, normal, normal; }
+.ori-ground, .ori-root {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  transform: translateZ(calc(var(--ori-layer) / 4));
+}
+.ori-root { --ori-ln: var(--ori-lz); }
+/* The element's own content prints at the landing; until then the root front stands for it */
+.ori-host:not(.ori-lifted):not(.is-landed) > :not(.ori-fold) { visibility: hidden; }
+.ori-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  backface-visibility: hidden;
+  transform: translateZ(calc(var(--ori-ply) / 2));
+}
+/* The shadow a lifted flap casts: in its parent's plane (the hinge turn undone), the shape the
+   driver clips per frame, offset, blurred and faded by the face's height (cue 3) */
+.ori-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate3d(var(--ori-ux, 1), var(--ori-uy, 0), 0, calc(-1 * var(--ori-a))) translate(var(--ori-sox, 0px), var(--ori-soy, 0px));
+}
+.ori-shadow-shape { position: absolute; inset: 0; background: #000; }
+.ori-creases {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(var(--ori-total, 640ms) / 3) linear;
+}
+.is-open .ori-creases {
+  opacity: 1;
+  transition-delay: calc(var(--ori-delay, 0ms) + var(--ori-total, 640ms) * 2 / 3);
+}
+.is-landed .ori-creases { opacity: 1; transition: none; }
+
+/* 4. The paper: the page's sheet, placed so the element shows the paper under it */
+.ori-paper {
+  background:
+    var(--ori-grain-soft),
+    var(--ori-sheet, none) var(--ori-sx, 0px) var(--ori-sy, 0px) / var(--ori-vw, 100vw) var(--ori-vh, 100vh) no-repeat,
+    var(--ori-paper, #f3f4f1);
+  background-blend-mode: multiply, normal, normal;
+}
+
+/* 5. Tone: L . N for a face hinged once on (ux, uy) at angle a is lx uy sin a - ly ux sin a + lz cos a */
+.ori-flap, .ori-lifted {
+  --ori-ln: calc(var(--ori-lx) * var(--ori-uy, 0) * sin(var(--ori-a)) - var(--ori-ly) * var(--ori-ux, 1) * sin(var(--ori-a)) + var(--ori-lz) * cos(var(--ori-a)));
+  --ori-occ: calc(var(--ori-occlusion) * abs(var(--ori-a)) / 180deg);
+}
+.ori-side.front, .ori-shade { --ori-k: calc(var(--ori-ka) + var(--ori-kd) * max(0, var(--ori-ln))); }
+.ori-side.back { --ori-k: calc(var(--ori-ka) + var(--ori-kd) * max(0, -1 * var(--ori-ln))); }
+.ori-side::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ori-side::after, .ori-shade {
+  background-color: rgb(0 0 0 / clamp(0, 1 - var(--ori-k), 1));
+  background-image:
+    linear-gradient(rgb(255 255 255 / clamp(0, var(--ori-k) - 1, 1)), rgb(255 255 255 / clamp(0, var(--ori-k) - 1, 1))),
+    var(--ori-crease, none);
+}
+
+/* 6. Rest: landed, the paper is the element */
+.is-landed .ori-flap, .is-landed .ori-ground, .is-landed .ori-root, .is-landed .ori-shadow, .ori-lifted.is-landed > .ori-fold > .ori-side, .ori-lifted.is-landed > .ori-fold > .ori-shade { visibility: hidden; }
+.ori-lifted.is-landed { transform: none !important; }
+
+@media (prefers-reduced-motion: reduce), print {
+  .ori-flap, .ori-ground, .ori-root, .ori-shadow, .ori-lifted > .ori-fold > .ori-side, .ori-shade { display: none !important; }
+  .ori-host > :not(.ori-fold) { visibility: visible !important; }
+  .ori-lifted { transform: none !important; transition: none !important; }
+  .ori-creases { opacity: 1 !important; transition: none !important; }
+}
