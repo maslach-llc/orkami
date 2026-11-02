@@ -2,8 +2,8 @@
 
 Origami for the web, as a library: a fold engine that lets a block of a page lie folded in its
 background as a shape of paper and unfold out of it, the way real paper does. Grown out of the
-motion system built for maslach.com in October 2026 (copied verbatim into `seed/` until each
-piece is ported) and meant to be open source: MIT, `github.com/maslach-llc/orkami`, published to
+motion system built for maslach.com in October 2026 (every piece now ported into `src/`) and
+meant to be open source: MIT, `github.com/maslach-llc/orkami`, published to
 npm as `orkami`. maslach.com is its first consumer and its proving ground, not its owner: nothing
 in `src/` may know about that site.
 
@@ -30,7 +30,6 @@ Started 2026-10-28. The plan docs in `todos/` are the spec; this file is only th
   API reference. Written before the code they describe, kept true after.
 - `playground/` — a small Vite + Vue page showing every named fold, the wordmark and a fold
   inspector. The place to look at the paper; not shipped.
-- `seed/` — the maslach.com originals, deleted piece by piece as `src/` replaces them.
 - `test/` — `node --test` over `.ts` files (Node 24+ strips types natively); no test framework.
 
 ## Hard rules
