@@ -2,7 +2,7 @@
 
 What the eye uses to read a moving face as paper, ranked by how much each cue contributes, with
 the exact rendering rule for each and its cost in the CSS driver and in the WebGL driver. Written
-2026-11-02 from the seed (`seed/`), the Maslach logo in Figma (`docs/design/02-look.md` quotes the
+2026-11-02 from the seed (the maslach.com originals this repo started from, removed by doc 04 and kept in git history), the Maslach logo in Figma (`docs/design/02-look.md` quotes the
 values with node ids) and the sources at the end. The drivers (docs 03 and 04) render these cues
 and nothing else; a cue not listed here is not paper.
 
@@ -13,7 +13,7 @@ One directional light, the same in both drivers. Direction toward the light, in 
 
     L = (-0.346, -0.538, 0.769)
 
-the seed's `(-0.45, 0.7, 1)` normalized (`seed/components/OrigamiUnfold3D.vue`, y flipped to page
+the seed's `(-0.45, 0.7, 1)` normalized (the seed's `OrigamiUnfold3D.vue`, y flipped to page
 coordinates): from the upper left, in front of the page, 40 degrees off the normal. The Figma
 component's description says the same: "lit from the upper left" (node 11:60, read 2026-11-02).
 The light does not move, scroll or follow the pointer: a page is a sheet on a desk under one lamp.
@@ -31,7 +31,7 @@ rest are the material.
 ### 1. Lit and shaded faces across every crease (Lambert)
 
 The alternation of a lit face and a shaded face across a crease is what reads as folded paper
-whatever the colors are (the wordmark's facets alternate for that reason, `seed/utils/origami.ts`).
+whatever the colors are (the wordmark's facets alternate for that reason, the seed's `origami.ts`).
 It is the one cue that works at any size, in a thumbnail, in monochrome.
 
 Rule. Every face has a print color P (its own, section 5) and a dynamic brightness factor:
@@ -68,7 +68,7 @@ turning face is a card trick; with the wrong back (the content mirrored), it is 
 
 Rule. The back of face F is painted with the sheet under F reflected across F's crease: a block
 lying folded shows, on its back, the page where it lies, so it is invisible until it moves (the
-seed's sheet paint, `seed/utils/sheetPaint.ts`: `--ori-sheet` placed by `--ori-sx/--ori-sy`,
+seed's sheet paint, the seed's `sheetPaint.ts`: `--ori-sheet` placed by `--ori-sx/--ori-sy`,
 mirrored for a horizontal hinge). The engine generalizes it: `back(x) = sheet(reflect_c(x))`, the
 reflection across the crease line c (`src/core/affine.ts` `reflect`), composed down the hinge
 tree for nested faces. The sheet is whatever the host registers as the page's paper: a solid
@@ -79,7 +79,7 @@ opacity; the default is opaque.
 
 Cost. CSS: a second element per face (`.back`), `backface-visibility: hidden` on both, the back
 rotated `rotateY(180deg) translateZ(1px)`, its clip the mirror image of the front's, its
-background the sheet placed by a matrix (the seed's `paper()` in `seed/unfold.ts` builds exactly
+background the sheet placed by a matrix (the seed's `paper()` in its `unfold.ts` builds exactly
 this). One extra layer per face, repositioned on scroll (a `requestAnimationFrame` per scroll
 event, as the seed does). WebGL: a second mesh with `side: BackSide` and the back material, or
 one mesh with `DoubleSide` and a per-side material; the sheet as a texture with a reflected UV.
@@ -131,7 +131,7 @@ the bled canvas.
 
 Cost. CSS: `perspective` on the fold's container and `transform-style: preserve-3d` down to the
 faces; free, but the container must not clip (`overflow` other than `visible` flattens the
-context, the seed's rule in `seed/origami.css`). WebGL: the camera; free.
+context, the seed's rule in its `origami.css`). WebGL: the camera; free.
 
 ### 5. Content is printed on the paper
 
@@ -161,7 +161,7 @@ Rule. A 1 px line along every crease, drawn on both faces: black at 0.3 opacity 
 white at 0.4 on a shaded face (the seed's `OrigamiWord.vue`; the Figma keyframes use a 1 unit
 black stroke on every face edge instead, which is the Figma drawing convention, not the look).
 The hairline appears over the last third of the landing (the settle) and stays. On the resting
-page sheet, creases are the sheet's own lines (`seed/utils/sheet.ts`, ink at 0.06).
+page sheet, creases are the sheet's own lines (the seed's `sheet.ts`, ink at 0.06).
 
 Cost. CSS: an SVG `<line>` per crease in a `.creases` overlay sized to the fold (the seed's
 `paper()`), `vector-effect: non-scaling-stroke`; negligible. WebGL: a `LineSegments` per crease
@@ -217,9 +217,9 @@ first release supports (`docs/design/02-look.md`).
 
 ## Sources
 
-Read 2026-11-02: `seed/origami.css`, `seed/unfold.ts`, `seed/utils/sheet.ts`,
-`seed/utils/sheetPaint.ts`, `seed/components/OrigamiWord.vue`,
-`seed/components/OrigamiUnfold.vue`, `seed/components/OrigamiUnfold3D.vue`; the Figma file
+Read 2026-11-02, from the seed (removed by doc 04, in git history): `origami.css`, `unfold.ts`, `utils/sheet.ts`,
+`utils/sheetPaint.ts`, `components/OrigamiWord.vue`,
+`components/OrigamiUnfold.vue`, `components/OrigamiUnfold3D.vue`; the Figma file
 `4dCOuFddrSlSROuULc5Rl1`, page "new logo" (nodes 11:60, 11:62, 11:63, 11:95, 18:319 to 18:455,
 24:293, 24:298) through the Figma MCP server, with the SVG exports of 11:63, 11:95, 24:293 and
 24:298 read as text; https://en.wikipedia.org/wiki/Lambertian_reflectance;

@@ -2,7 +2,7 @@
 // of the core model (a demo of letters as folds, docs/design/01-decisions.md D9). Every letter
 // is a tree of flat facets; each facet hangs off its parent on a hinge (the crease they share),
 // so a letter can be unfolded crease by crease by the engine or drawn flat as polygons.
-// Ported from the seed's facet trees (`seed/utils/origami.ts`), every number identical.
+// Ported from the seed's facet trees (the seed's `origami.ts`), every number identical.
 //
 // Units: letters are 270 tall; the ribbon is 72 wide (the M's diagonal strip is 76). Facets
 // alternate lit and shaded along each strip, the way a zigzag catches one light from the upper
@@ -16,7 +16,7 @@ export interface Glyph {
   char: string
   width: number
   fold: Fold
-  /** The root facet's own hinge from the seed: the letter's left edge, how it hangs in the word. Not part of the fold. */
+  /** The root facet's own hinge from the seed: the letter's left (or top) edge, how it hangs in the word. Not part of the glyph's fold: `wordFold` hangs the letter on the page by it (D13). */
   hinge: [Pt, Pt]
 }
 
