@@ -7,3 +7,4 @@ dist/
 
 # planning docs live in the notes vault (~/notes/dev/projects/orkami); this is a local symlink
 /todos
+playground/dist/
