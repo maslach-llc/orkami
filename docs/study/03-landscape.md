@@ -127,7 +127,7 @@ paper" in motion. The owner decides; this is the expectation the seed held, conf
 
 ### The seed's `@property` CSS approach
 
-- `seed/origami.css`, `seed/unfold.ts`, `seed/components/OrigamiUnfold.vue` (read 2026-11-02).
+- the seed's `origami.css`, the seed's `unfold.ts`, the seed's `OrigamiUnfold.vue` (read 2026-11-02).
   A registered `--ori-a: <angle>` with a CSS transition on it, so the shade follows the angle
   through `calc(sin(var(--ori-a)))`; `rotate3d(ux, uy, 0, angle)` about a crease given by a
   transform origin and an axis; two-sided flaps (`.front` / `.back`, `backface-visibility`), the
@@ -143,7 +143,7 @@ paper" in motion. The owner decides; this is the expectation the seed held, conf
 
 ### three.js and the WebGL route
 
-- `seed/components/OrigamiUnfold3D.vue` (read 2026-11-02): nested `Group`s hinged on the creases
+- the seed's `OrigamiUnfold3D.vue` (read 2026-11-02): nested `Group`s hinged on the creases
   (a quaternion from the crease axis and the angle), `ShapeGeometry` faces, a front
   `MeshStandardMaterial` and a `BackSide` back, one `DirectionalLight` from the upper left with a
   2048 shadow map onto a `ShadowMaterial` floor at 0.22, an `AmbientLight` 0.3, a camera 2.2

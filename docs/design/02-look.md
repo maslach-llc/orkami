@@ -3,7 +3,7 @@
 The house look as a themable style: sharp facets, two-tone print, one light, shadows that do the
 work. Written 2026-11-02 from the Maslach logo in Figma (file `4dCOuFddrSlSROuULc5Rl1`, page
 "new logo", read through the Figma MCP server with the SVG exports of the quoted nodes read as
-text) and its seed port (`seed/components/OrigamiWord.vue`, `seed/components/OrigamiUnfold.vue`).
+text) and its seed port (the seed's `OrigamiWord.vue` and `OrigamiUnfold.vue`).
 The logo supplies the reference values; the default style is the logo's own "Paper light"
 variant, a neutral paper. Nothing in `src/` names the site: a host passes its style in. The
 rendering rule behind each field is in `docs/study/02-paper-on-a-screen.md` (cited as "02").
@@ -57,7 +57,7 @@ instance recolors by its four facet fills" (lede, 11:62). Values below are from 
 the Brand instance (11:63, inside "01 — Colors" 11:127) and of the K2 letters (24:293, 24:298),
 which carry the same effects at full scale. Figma's effect "blur" exports as `stdDeviation =
 blur / 2`; the blur values below are Figma's, in the component's own units (letters 270 tall,
-`seed/utils/origami.ts`), with the CSS equivalent in brackets.
+the seed's `origami.ts`), with the CSS equivalent in brackets.
 
 **Tones** (the four facet fills, top to bottom gradients; the seed's flat tokens in brackets):
 
@@ -134,7 +134,7 @@ thin        = false
 ```
 
 The brand style is the same with the Brand tones table above (and `--ori-1..4` in dark mode:
-`#8fa2ff #2a3a63 #5d72e3 #16213a`, `seed/origami.css`, as flat tones). A host builds it by
+`#8fa2ff #2a3a63 #5d72e3 #16213a`, the seed's `origami.css`, as flat tones). A host builds it by
 passing its four slot tones; everything else is the default.
 
 ## How each piece maps onto the physical model

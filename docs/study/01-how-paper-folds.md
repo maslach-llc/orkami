@@ -6,7 +6,7 @@ orders, and the schedule that moves a fold in time. Written 2026-11-02 before th
 implements the model fixed here, `docs/design/01-decisions.md` records the choices.
 
 Sources are listed at the end. A claim with no source note is derived here (geometry) or taken
-from the seed code in `seed/`; a claim marked *unverified, from memory* has no source read this
+from the seed code (removed by doc 04, kept in git history); a claim marked *unverified, from memory* has no source read this
 session.
 
 ## 1. The physics of a fold
@@ -315,7 +315,7 @@ is hinged to the panel before it: a chain.
 - Suits: a list of steps (one panel per step) on horizontal creases: **the owner's third
   observation, confirmed**: a list wants a pleat; a tall column likewise; a strip of letters or
   cards side by side on vertical creases (the wordmark is an accordion of letters, each letter's
-  root hinged on the gap before it, `seed/components/OrigamiUnfold.vue`). Items that are separate
+  root hinged on the gap before it, the seed's `OrigamiUnfold.vue`). Items that are separate
   cards, not one strip, want independent lifts with a stagger instead (3.2, scheduled by the
   stagger in section 4); the engine offers both and names them differently.
 
@@ -506,9 +506,9 @@ angles move together, projected onto the vertex constraints each step (Tachi 200
 
 | where | duration per crease | stagger | easing | closed angle |
 |---|---|---|---|---|
-| `seed/origami.css` `--ori-dur`, `v-unfold` | 700 ms | 90 ms between siblings, 30 ms between a blintz's corners | `cubic-bezier(.22, .75, .25, 1)` | 180 (book), -90 (lift), 180 (quad flaps) |
-| `seed/components/OrigamiUnfold.vue` (CSS wordmark) | 760 ms | 60 ms between a letter's creases, 70 ms between letters | `cubic-bezier(.4, .1, .2, 1)` | 180 |
-| `seed/components/OrigamiUnfold3D.vue` (WebGL wordmark) | 760 ms | 60 / 70 ms as above | the same bezier, solved numerically | 180; a letter's root starts tilted 0.08 pi |
+| the seed's `origami.css` `--ori-dur`, `v-unfold` | 700 ms | 90 ms between siblings, 30 ms between a blintz's corners | `cubic-bezier(.22, .75, .25, 1)` | 180 (book), -90 (lift), 180 (quad flaps) |
+| the seed's `OrigamiUnfold.vue` (CSS wordmark) | 760 ms | 60 ms between a letter's creases, 70 ms between letters | `cubic-bezier(.4, .1, .2, 1)` | 180 |
+| the seed's `OrigamiUnfold3D.vue` (WebGL wordmark) | 760 ms | 60 / 70 ms as above | the same bezier, solved numerically | 180; a letter's root starts tilted 0.08 pi |
 | the owner's note in the plan doc | 640 ms per letter | 70 ms between letters | | |
 
 Both beziers stay inside [0, 1] on y: no overshoot, which is right (paper does not bounce past
@@ -575,8 +575,8 @@ Read this session, 2026-11-02:
   https://en.wikipedia.org/wiki/Origami_techniques (bases and moves).
 - Rabbit Ear readme and `package.json` via the GitHub API (0.9.41, 2026-10-16, GPLv3) and
   https://github.com/rabbit-ear/rabbit-ear.
-- The seed: `seed/origami.css`, `seed/unfold.ts`, `seed/utils/origami.ts`,
-  `seed/components/OrigamiUnfold.vue`, `seed/components/OrigamiUnfold3D.vue`.
+- The seed: `origami.css`, `unfold.ts`, `utils/origami.ts`,
+  `OrigamiUnfold.vue`, `OrigamiUnfold3D.vue` (removed by doc 04, in git history).
 
 Unverified, from memory: the one-degree-of-freedom rigid path of a flat-foldable degree-4 vertex
 (3.10); the existence of the symmetric rigid collapse path of the waterbomb and preliminary bases
