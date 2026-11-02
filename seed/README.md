@@ -5,8 +5,7 @@ here so the first plan docs can port it without reading another repo. Nothing in
 is imported by `src/`; each file is deleted once its replacement lands in `src/` (docs 02 to
 04 in the planning tree), and the folder goes with the last one.
 
-- `utils/origami.ts` — the wordmark's glyphs as facet trees (polygon, parent, hinge, lit) and
-  `layout()`: the model the WebGL unfold hangs off.
+- `utils/origami.ts` — ported: the wordmark's facet trees and `layout()` now live in `src/glyphs/` (doc 02).
 - `utils/sheet.ts`, `utils/sheetPaint.ts` — the page's sheet (seven large facets) and the paint
   that puts the sheet under any element so a folded flap is the background until it moves.
 - `unfold.ts` — the `v-unfold` directive: hinges `lift`, `top|bottom|left|right`, `blintz`,
