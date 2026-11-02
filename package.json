@@ -19,6 +19,10 @@
       "types": "./dist/css/index.d.ts",
       "import": "./dist/css/index.js"
     },
+    "./three": {
+      "types": "./dist/three/index.d.ts",
+      "import": "./dist/three/index.js"
+    },
     "./vue": {
       "types": "./dist/vue/index.d.ts",
       "import": "./dist/vue/index.js"
@@ -36,14 +40,20 @@
     "verify": "npm run typecheck && npm test && npm run build"
   },
   "devDependencies": {
+    "@types/three": "0.186.0",
+    "three": "0.186.1",
     "typescript": "^5.9.3",
     "vue": "^3.5.44"
   },
   "peerDependencies": {
-    "vue": "^3.5"
+    "vue": "^3.5",
+    "three": ">=0.160"
   },
   "peerDependenciesMeta": {
     "vue": {
+      "optional": true
+    },
+    "three": {
       "optional": true
     }
   }
