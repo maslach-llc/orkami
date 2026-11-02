@@ -10,7 +10,8 @@
    3. The fold. .ori-host is the element; .ori-fold the layer inside it holding the ground
       (.ori-ground, the sheet where a face is not yet), the creases (.ori-creases, hairlines
       that come in at the settle) and the flaps (.ori-flap, nested by parent, each with a
-      .front and a .back and its cast shadow in the parent's plane). A lift turns the host
+      .front and a .back, each a box the size of its face clipped to it with the sheet-sized
+      paper inside (.ori-face), and its cast shadow in the parent's plane). A lift turns the host
       itself (.ori-lifted) with its back and shade inside .ori-fold.
    4. The paper. .ori-paper shows the page's sheet through its own box, placed by
       --ori-sx/--ori-sy (trackSheet); the back of a face wears it under a matrix (.ori-ink).
@@ -87,7 +88,7 @@
   backface-visibility: hidden;
 }
 .ori-side.back { transform: rotateY(180deg) translateZ(var(--ori-ply)); }
-.ori-ink { position: absolute; }
+.ori-face, .ori-ink { position: absolute; }
 .ori-print { background-blend-mode: multiply, normal, normal; }
 .ori-ground, .ori-root {
   position: absolute;
