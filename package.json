@@ -1,8 +1,23 @@
 {
   "name": "orkami",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "license": "MIT",
   "description": "Origami for the web: a fold engine that lets blocks of a page unfold out of their background like real paper, with CSS and WebGL drivers and a Vue adapter.",
+  "keywords": [
+    "origami",
+    "fold",
+    "paper",
+    "animation",
+    "css",
+    "webgl",
+    "three",
+    "vue",
+    "fold-format"
+  ],
+  "homepage": "https://github.com/maslach-llc/orkami#readme",
+  "bugs": {
+    "url": "https://github.com/maslach-llc/orkami/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maslach-llc/orkami.git"
@@ -27,27 +42,44 @@
       "types": "./dist/vue/index.d.ts",
       "import": "./dist/vue/index.js"
     },
-    "./orkami.css": "./dist/orkami.css"
+    "./orkami.css": "./dist/orkami.css",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md",
+    "CHANGELOG.md"
   ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "node --test 'test/*.test.ts'",
     "build": "tsc -p tsconfig.build.json && node scripts/copy-vue.mjs",
-    "verify": "npm run typecheck && npm test && npm run build"
+    "prepare": "npm run build",
+    "verify": "npm run typecheck && npm test && npm run build && npm run release-check",
+    "play": "vite --config playground/vite.config.ts",
+    "play:build": "vite build --config playground/vite.config.ts",
+    "release-check": "node scripts/release-check.mjs"
   },
   "devDependencies": {
     "@types/three": "0.186.0",
+    "@vitejs/plugin-vue": "^6.0.10",
     "three": "0.186.1",
     "typescript": "^5.9.3",
+    "vite": "^8.3.5",
     "vue": "^3.5.44"
   },
   "peerDependencies": {
-    "vue": "^3.5",
-    "three": ">=0.160"
+    "three": ">=0.160",
+    "vue": "^3.5"
   },
   "peerDependenciesMeta": {
     "vue": {

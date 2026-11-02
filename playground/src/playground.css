@@ -1,0 +1,36 @@
+:root {
+  --pg-bg: var(--ori-bg);
+  --pg-ink: var(--ori-ink);
+  --pg-muted: color-mix(in srgb, var(--ori-ink) 60%, var(--ori-bg));
+  --pg-line: color-mix(in srgb, var(--ori-ink) 14%, var(--ori-bg));
+  --pg-card: #ffffff;
+  --pg-card-ink: #0e1726;
+  --pg-accent: #2f49d1;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --pg-card: #1d222c; --pg-card-ink: #e6e8ee; --pg-accent: #8fa2ff; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--ori-grain-soft), var(--ori-sheet, none) center / var(--ori-vw, 100vw) var(--ori-vh, 100vh) fixed, var(--ori-paper, var(--pg-bg));
+  color: var(--pg-ink);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+a { color: var(--pg-accent); }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
+h2 { font-size: 1.15rem; }
+code { font: 13px ui-monospace, monospace; }
+button, select { font: inherit; color: inherit; background: var(--pg-bg); border: 1px solid var(--pg-line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--pg-accent); }
+button[aria-pressed='true'] { border-color: var(--pg-accent); color: var(--pg-accent); }
+input[type=range] { width: min(320px, 100%); }
+.pg-wrap { max-width: 1280px; margin: 0 auto; padding: 0 16px 80px; }
+.pg-muted { color: var(--pg-muted); }
+.pg-row { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.pg-card { background: var(--pg-card); color: var(--pg-card-ink); }
+/* Folded paper reaches past its block (a lift lies over its edge): the page clips it at the
+   sides, never the block itself (a host must not clip) */
+main { overflow-x: clip; }

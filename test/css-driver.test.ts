@@ -6,6 +6,7 @@ import { accordion, blintz, book, cupboard, lift, named, type NamedFold } from '
 import { flatBack } from '../src/core/pose.ts'
 import { shadowAt } from '../src/core/style.ts'
 import { fits, grainUrl, mount, sidePolygon } from '../src/css/driver.ts'
+import { wordFold } from '../src/glyphs/layout.ts'
 import { block, type FakeElement } from './fake-dom.ts'
 
 const DEG = 180 / Math.PI
@@ -293,4 +294,21 @@ test('the angle at t is the pose angle in degrees, closing creases included', ()
   assert.ok(expected > 0)
   const a = deg(byFace(el, 'bl').style.getPropertyValue('--ori-a'))
   assert.ok(a > 0 && a < c4.closed * DEG)
+})
+
+test('a word mounts every letter facet as a flap on the page, with no ground and no root side', () => {
+  const fold = wordFold('MAS')
+  const { el } = block(fold.sheet.width, fold.sheet.height)
+  const h = mount(el, fold)
+  const faces = fold.faces.filter(f => !f.page)
+  assert.equal(flapsOf(el).length, faces.length)
+  assert.equal(el.querySelectorAll('.ori-ground').length, 0)
+  assert.equal(el.querySelectorAll('.ori-root').length, 0)
+  assert.ok(!el.classList.contains('ori-lifted'))
+  for (const f of faces) assert.ok(byFace(el, f.id), `no flap for ${f.id}`)
+  h.set(1)
+  assert.ok(el.classList.contains('is-landed'))
+  for (const flap of flapsOf(el)) near(deg(flap.style.getPropertyValue('--ori-a')), 0)
+  h.destroy()
+  assert.equal(el.querySelectorAll('.ori-flap').length, 0)
 })
