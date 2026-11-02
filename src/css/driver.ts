@@ -11,7 +11,9 @@
 //
 // Where the content goes. The element's own content is the print of one face, the content
 // face: the root, or, when the root is the page (a lift), the page's one child, in which case
-// the element itself is that flap and turns on the hinge. The other faces' fronts show the
+// the element itself is that flap and turns on the hinge; when several faces hang on the page
+// (a word, D13) there is no content face: every face is a flap, no ground is drawn (the page is
+// the ground) and the element's own content (the flat word) shows at the landing. The other faces' fronts show the
 // element's background; the ground under them is the sheet until the paper lands, and at the
 // landing the flaps step aside so the element's content shows flat (doc 06 prints content on
 // every face). A face with a `slot` (a glyph) is painted paper: its print is the style's tone.
@@ -135,11 +137,15 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     ? options.drive
     : (fold.closures?.length ?? 0) === 0 && typeof win?.CSS?.registerProperty === 'function' ? 'css' : 'frame'
 
-  // The content face: the root, or the page's one child, which is then the element itself
+  // The content face: the root; or, on a page with one face hinged on it (a lift), that face,
+  // which is then the element itself; or, on a page with several (a word, D13), none: every face
+  // is a flap of painted paper, and the element's own content is what shows once they land
   const rootFace = faceOf(fold, fold.root)
-  const lifted = !!rootFace.page
-  if (lifted && (tree.children[fold.root]?.length ?? 0) !== 1) throw new Error('a fold rooted on the page needs exactly one face hinged on it')
-  const contentId: FaceId = lifted ? creases.get(tree.children[fold.root]![0]!)!.child : fold.root
+  const onPage = !!rootFace.page
+  const hung = tree.children[fold.root]?.length ?? 0
+  if (onPage && hung === 0) throw new Error('a fold rooted on the page needs a face hinged on it')
+  const lifted = onPage && hung === 1
+  const contentId: FaceId | undefined = lifted ? creases.get(tree.children[fold.root]![0]!)!.child : onPage ? undefined : fold.root
 
   // --- the host
   const hostProps: string[] = []
@@ -254,7 +260,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   const flapEls = new Map<FaceId, HTMLElement>()
   const parentEl = (id: FaceId): HTMLElement => {
     const p = tree.parent[id]
-    if (p == null || p === contentId || p === fold.root && lifted) return container
+    if (p == null || p === contentId || p === fold.root && onPage) return container
     return flapEls.get(p) ?? container
   }
   const axisOf = (c: Crease) => {
@@ -325,7 +331,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   // --- the ground: the sheet where a face is not yet, the root's own front over the element
   // (its content shows at the landing), and the creases that stay
   const grounds: HTMLElement[] = []
-  if (!lifted) {
+  if (!onPage) {
     for (const face of fold.faces) {
       if (face.id === contentId || face.page) continue
       const g = doc.createElement('div')
@@ -339,7 +345,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   }
   /** While the paper is folded the element's own box paints nothing: the root front and the ground are it. */
   const cover = (on: boolean) => {
-    if (lifted) return
+    if (onPage) return
     if (on) {
       el.style.setProperty('background-color', 'transparent')
       el.style.setProperty('background-image', 'none')
