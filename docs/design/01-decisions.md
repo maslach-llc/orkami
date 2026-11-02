@@ -268,3 +268,60 @@ than a list of glyph folds, lets every driver, schedule and test treat it like a
 and 0; a packet angle on any other named fold (it is the word's, not a general option); a crease
 on a page face that leaves the page. `toFOLD` of a word does not round-trip yet: the page face
 overlaps the letters, which a FOLD crease pattern cannot hold.
+
+## D14. The WebGL camera: perspective, at the CSS driver's distance, framing the sheet plus a computed bleed
+
+**Decision.** One `PerspectiveCamera` on the sheet's center at 2.2 times the sheet's width and
+never under 1000 (the CSS driver's `perspective`, 02 cue 4), its vertical field of view fitted so
+the sheet plane fills the canvas exactly, sheet plus bleed. The bleed is computed from the core
+(`bleedFor`: the poses through the motion projected from that distance, and their shadows under
+the light), not guessed.
+
+**Reason.** A fold must look the same in either driver (D5), and the perspective is the larger part
+of how a turning face reads; an orthographic camera turns a lifted flap into a shrinking one. A
+fixed bleed (the seed's 20 and 75 percent) clips a tall flap and wastes pixels on a wide word.
+
+**Rules out.** A camera that orbits, follows the pointer or the scroll; an orthographic default; a
+vanishing point other than the fold's own center.
+
+## D15. The WebGL light: Lambert in the print's own color space, a soft shadow map from the same light
+
+**Decision.** `MeshLambertMaterial` with flat shading under one `DirectionalLight` from the
+style's direction at intensity `kd * pi` and an `AmbientLight` at `ka * pi`, the print carried as
+raw sRGB vertex colors and the canvas drawn with no output encoding, so the drawn face is the
+core's `tone()` (print times k, per channel, clamped) and matches the CSS driver tone for tone.
+The light casts a variance shadow map (VSM) onto a `ShadowMaterial` floor half a unit under the
+sheet; only faces lifted off the sheet cast (a face lying in it is part of the page, as in the CSS
+driver) and only the root face and the floor receive (a blurred map shades a moving face with its
+own neighbours, VSM's light bleeding, which the browser check showed on the waterbomb); the map's blur radius follows the highest face's height from `shadowAt()` (the contact
+layer's softness at touchdown, the ambient layer's as it rises); the floor's opacity is the
+resting pair's combined opacity over the shadow's intensity (0.5), so a full shadow on the floor
+is the logo's resting stack and a shadow on a face darkens it by the same amount. PCF stays
+available (`shadowFilter: 'pcf'`).
+
+**Reason.** three's color management would light the print in linear space and encode it back, so
+a turned face would darken differently from the CSS overlay and from `tone()`. The study named
+`PCFShadowMap`, but three's PCF filter is a five-tap Vogel disk: at the radii the ambient layer
+needs (16 px and more) it dithers into visible noise, which the browser check showed; VSM blurs
+the map instead and reads as paper's soft shadow. One radius per frame from the highest face is
+the cheapest way to make shadows long and soft in the air and tight on landing without a
+per-face shadow pass (PCSS).
+
+**Rules out.** `MeshStandardMaterial`, specular, tone mapping, environment light; a resting shadow
+under a fold lying in the page; per-face shadow softness in the first release.
+
+## D16. The WebGL canvas exists only while the unfold plays
+
+**Decision.** `<Unfold3D>` renders its flat fallback (the `Word` SVG for a word, the `flat` slot
+otherwise) on the server and at rest; on play it imports three.js, lays a canvas over the
+fallback with the bleed, hides the fallback under it, plays, and at the landing fades the canvas
+out over the fallback in 300 ms and frees the WebGL context. Reduced motion, a renderer that
+cannot be created and no JavaScript show the fallback.
+
+**Reason.** The landed paper is flat, and the flat SVG draws the resting lockup better than a
+canvas (crisp at every size, selectable, server rendered, no context held), so the canvas is only
+worth its cost while something moves. A page has a small budget of WebGL contexts; holding one
+per resting logo exhausts it. The seed did the same and the owner approved the result.
+
+**Rules out.** A canvas left mounted at rest; three.js in the server bundle or loaded before the
+first play; a fallback that differs from the landed pose (the fallback is what the paper lands on).
