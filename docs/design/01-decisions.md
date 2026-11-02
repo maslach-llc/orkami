@@ -182,3 +182,40 @@ pose (computed per frame), so the split is clean.
 **Rules out.** Brand values in the core or the drivers; rounded corners, bevels or soft edges
 (`edges` has one value); a second light or a per-style light direction in the first release
 (the light is a style field so it can be themed later, but the drivers assume the default).
+
+## D10. The coupled bases drive the mountains and solve the valleys
+
+**Decision.** For the waterbomb and preliminary bases the schedule drives the four creases that
+close at the vertex on the same side (the corner mountains of the waterbomb, the midline
+mountains of the preliminary), all by one progress, and the closure solves the two valleys'
+shared magnitude by bisection on the gap at the closing crease, measured along the normal of
+the fold's mirror plane (`Closure.across`). The closing crease's angle is then the dihedral the
+loop produces (the waterbomb's `OC` equals its mirror `OB`; the preliminary's `OC` stays 0).
+A coupled base takes the simultaneous schedule only.
+
+**Reason.** Checked numerically before the code (doc 02): with the mountains driven, the gap
+changes sign once on [0, pi] at every progress and the loop closes to machine precision, the
+closing crease stays consistent and every face stays rigid. Driving the valleys instead has the
+trivial solution (every mountain at 0): that is the book fold through the midline, not the base.
+One scalar and one sign is what bisection needs; the symmetric path the study asserted (01,
+section 3.7) exists.
+
+**Rules out.** Scheduling the valleys or the closing crease; a sequence or a stagger on a base
+(the loop would open); a base on a rectangle (the pattern has no closing angle; the constructor
+refuses it rather than tearing the sheet).
+
+## D11. A schedule is built in milliseconds and normalized to t, keeping its length
+
+**Decision.** `together`, `sequence` and `stepwise` compute each crease's duration in
+milliseconds from its reach (D4), place the starts in milliseconds (`k * step`, or one after
+another plus a gap), then divide by the whole motion's length so every entry is in units of t,
+and keep that length as `Schedule.total` (ms). A driver maps t to the clock by `total`, to a
+scroll or a slider by ignoring it.
+
+**Reason.** D4's formula is in t, D4's duration rule is in milliseconds; both are needed, and
+a fraction alone cannot recover the pace. The seed's step-by-step list ("a list of steps read one
+by one", 01 section 4) is a distinct schedule from the overlapping gesture, so it has its own
+builder rather than a magic step.
+
+**Rules out.** Per-crease wall-clock values in the schedule; a per-crease easing option
+(every entry takes the one `paper` curve unless code sets another).

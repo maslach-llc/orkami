@@ -8,6 +8,14 @@
     "url": "git+https://github.com/maslach-llc/orkami.git"
   },
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "src"
