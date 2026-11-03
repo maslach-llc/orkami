@@ -226,6 +226,21 @@ section 3.7) exists.
 (the loop would open); a base on a rectangle (the pattern has no closing angle; the constructor
 refuses it rather than tearing the sheet).
 
+**Amended 2026-11-03 (0.1.1).** The bases' assignments are now written as the visitor
+sees them with the root layer (T1 + T2, T1 + Tl) lying on the page: the textbook bases seen from
+their back. Seen from the front and held by their top layer, every other layer turned behind the
+root and passed below the page (z < 0 through the whole unfold), which the CSS ground painted
+over and WebGL drew as a dish sunk into the sheet. Inverting the assignments is the same paper
+viewed from the other side, so nothing above changes but the names: the driven creases (the
+waterbomb's corners, the preliminary's midlines) are now valleys and the solved pair mountains,
+and every face stays at z >= 0. The closure also takes the folded end of the bisection when both
+ends close the loop (at t = 0, where flat and fully folded solved creases both close it), chosen
+by how far the driven creases are folded; before, the closed pose took flat and mis-stacked the
+base. Tests: no face of any named fold below the page at any sampled t; the closed pose turns
+every face the way `stackOrder` says. The CSS driver draws no ground under a face joined to the root by
+flat creases only (the waterbomb's T2, the preliminary's Tl): it never leaves the sheet, and a
+ground there tied with its flap for depth and drew a hole.
+
 ## D11. A schedule is built in milliseconds and normalized to t, keeping its length
 
 **Decision.** `together`, `sequence` and `stepwise` compute each crease's duration in

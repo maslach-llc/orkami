@@ -5,6 +5,17 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ## [Unreleased]
 
+### Fixed
+
+- The `waterbomb` and `preliminary` bases no longer sink below the page as they open. Their
+  assignments were the ones seen from below, so every layer but the root turned under the sheet:
+  the CSS driver's ground painted over them (one triangle showed) and WebGL drew a dish sunk into
+  the page. They are now modelled from the side that faces the visitor, rising toward them as one
+  coupled motion; the closed pose takes the folded end of the closure, so the closed base stacks
+  as `stackOrder` says.
+- The CSS driver no longer draws a hole where a face stays in the sheet beside the root (the
+  waterbomb's T2, the preliminary's Tl): such a face gets no ground to fight its flap for depth.
+
 ### Changed
 
 - Shadows are contact hardening in both drivers (D15): sharp and dark where a flap meets the sheet,

@@ -396,8 +396,17 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   // (its content shows at the landing), and the creases that stay
   const grounds: HTMLElement[] = []
   if (!onPage) {
+    // A face joined to the content face by flat creases only never leaves the sheet: its flap
+    // lies exactly where its ground would (layer step 0), and the two would fight for depth, the
+    // ground winning (the waterbomb's T2 drew as a hole). It needs no ground: its front is the sheet.
+    const stays = (id: FaceId): boolean => {
+      if (id === contentId) return true
+      const h = tree.hinge[id], p = tree.parent[id]
+      if (h == null || p == null) return false
+      return creases.get(h)!.closed === 0 && stays(p)
+    }
     for (const face of fold.faces) {
-      if (face.id === contentId || face.page) continue
+      if (face.id === contentId || face.page || stays(face.id)) continue
       const g = doc.createElement('div')
       g.className = 'ori-ground ori-paper'
       g.style.clipPath = polygon(face.pts)
