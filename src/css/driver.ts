@@ -20,10 +20,10 @@
 import { compose, invert, toCss, type Affine, type Pt } from '../core/affine.ts'
 import { centroid, face as faceOf, sign, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
 import { flatBack, hingeAxis, pose } from '../core/pose.ts'
-import { together, type Schedule } from '../core/schedule.ts'
+import { together, transitionable, type Schedule } from '../core/schedule.ts'
 import { rotation, transform } from '../core/space.ts'
 import { stackOrder } from '../core/stack.ts'
-import { creaseGradient, slotTone, style as makeStyle, type Style, type StyleOverrides, shadowAt } from '../core/style.ts'
+import { creaseGradient, penumbra, slotTone, style as makeStyle, type Style, type StyleOverrides } from '../core/style.ts'
 import { hingeTree, reach } from '../core/tree.ts'
 import { trackSheet, type SheetMode } from './sheet.ts'
 
@@ -118,6 +118,70 @@ const deferred = (): Deferred => {
   return { promise, resolve }
 }
 
+/** The light's direction in a face's flat frame, from its pose matrix (column major, rigid): the page's light turned back by the face's rotation. */
+function lightIn(matrix: number[] | undefined, light: readonly [number, number, number]): [number, number, number] {
+  if (!matrix) return [light[0], light[1], light[2]]
+  const m = matrix
+  // R^T L: the rotation's columns dotted with L
+  return [
+    m[0]! * light[0] + m[1]! * light[1] + m[2]! * light[2],
+    m[4]! * light[0] + m[5]! * light[1] + m[6]! * light[2],
+    m[8]! * light[0] + m[9]! * light[1] + m[10]! * light[2],
+  ]
+}
+
+/**
+ * The shadow a flap casts on its parent's plane (D15, contact hardening): its outline is the
+ * face projected along the light (so it meets the crease, where the flap does), a contact layer
+ * sharp and dark at the crease that fades out over the first `2 * fade` px of gap, and an ambient
+ * layer as soft and pale as `penumbra()` makes it at the flap's middle. The shape is drawn in its
+ * own bounding box (`box`, in the parent's flat frame; `outline` and the masks are in the box),
+ * so no clip sits far from its box's origin and nothing past the sheet is cut. Undefined when
+ * the face lies in its parent's plane or the parent faces away from the light.
+ */
+export function castShadow(pts3: number[][], axis: { point: Pt; dir: Pt }, light: readonly [number, number, number], style: Style): {
+  box: { x: number; y: number; w: number; h: number }
+  outline: Pt[]
+  contact: { opacity: number; sigma: number; mask: string }
+  ambient: { opacity: number; sigma: number; mask: string }
+} | undefined {
+  const [lx, ly, lz] = light
+  const h = Math.max(0, ...pts3.map(v => v[2]!))
+  if (lz < 0.05 || h <= 0) return undefined
+  // A face in the sheet casts nothing at rest: the shadow comes in over the first `fade` px of lift
+  const fade = style.shadows.contact.fade
+  const lift = Math.min(1, h / fade)
+  const cast: Pt[] = pts3.map(v => [v[0]! - v[2]! * lx / lz, v[1]! - v[2]! * ly / lz])
+  const gap = Math.max(...pts3.map(v => Math.max(0, v[2]!) / lz))
+  // The direction away from the crease, toward the shadow's far side, and how far that is
+  let n: Pt = [-axis.dir[1], axis.dir[0]]
+  const c = centroid(cast)
+  if ((c[0] - axis.point[0]) * n[0] + (c[1] - axis.point[1]) * n[1] < 0) n = [-n[0], -n[1]]
+  const far = Math.max(1, ...cast.map(q => (q[0] - axis.point[0]) * n[0] + (q[1] - axis.point[1]) * n[1]))
+  const b = bounds(cast)
+  const box = { x: b.x, y: b.y, w: Math.max(1, b.w), h: Math.max(1, b.h) }
+  const outline: Pt[] = cast.map(q => [q[0] - box.x, q[1] - box.y])
+  const from: Pt = [axis.point[0] - box.x, axis.point[1] - box.y]
+  const to: Pt = [from[0] + n[0] * far, from[1] + n[1] * far]
+  const reach = Math.min(1, 2 * fade / Math.max(gap, 1e-6))
+  const mid = penumbra(gap / 2, style)
+  const s = style.shadows
+  return {
+    box,
+    outline,
+    contact: {
+      opacity: (s.contact.opacity + s.ambient.opacity / 2) * lift,
+      sigma: s.contact.blur / 2,
+      mask: gradient(from, to, [{ offset: 0, alpha: '1' }, { offset: reach, alpha: '0' }], box.w, box.h),
+    },
+    ambient: {
+      opacity: s.ambient.opacity * mid.strength * lift,
+      sigma: mid.sigma,
+      mask: gradient(from, to, [{ offset: 0, alpha: '1' }, { offset: 1, alpha: num(0.6 * penumbra(gap, style).strength) }], box.w, box.h),
+    },
+  }
+}
+
 /** Builds the flaps of `fold` inside `el` and returns the handle that drives them. `fold` may be a factory taking the element's size. */
 export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: number) => Fold), options: MountOptions = {}): Handle {
   const doc = el.ownerDocument
@@ -135,7 +199,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   const reduced = !!win?.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   const drive: Exclude<Drive, 'auto'> = options.drive && options.drive !== 'auto'
     ? options.drive
-    : (fold.closures?.length ?? 0) === 0 && typeof win?.CSS?.registerProperty === 'function' ? 'css' : 'frame'
+    : (fold.closures?.length ?? 0) === 0 && transitionable(schedule) && typeof win?.CSS?.registerProperty === 'function' ? 'css' : 'frame'
 
   // The content face: the root; or, on a page with one face hinged on it (a lift), that face,
   // which is then the element itself; or, on a page with several (a word, D13), none: every face
@@ -401,20 +465,19 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
       if (angles) f.el.style.setProperty('--ori-a', `${num(angle * DEG)}deg`)
       const r = rotation([f.axis.point[0], f.axis.point[1], 0], [f.axis.dir[0], f.axis.dir[1], 0], angle)
       const pts3 = f.face.pts.map(([x, y]) => transform(r, [x, y, 0]))
-      const h = Math.max(0, ...pts3.map(v => v[2]))
-      const outline: Pt[] = pts3.map(v => [v[0], v[1]])
-      const s = shadowAt(h, style)
-      // A face in the sheet casts nothing at rest: the stack comes in over the first `fade` px of lift
-      const lift = Math.min(1, h / style.shadows.contact.fade)
-      const layers = [s.contact, s.ambient]
+      const cast = castShadow(pts3, f.axis, lightIn(p.faces[f.crease.parent]?.matrix, style.light.direction), style)
       f.shadows.forEach(({ wrap, shape }, i) => {
-        const l = layers[i]!
-        const opacity = l.opacity * lift
-        wrap.style.opacity = num(opacity)
-        wrap.style.filter = `blur(${px(l.blur / 2)})`
-        wrap.style.setProperty('--ori-sox', px(l.offset[0]))
-        wrap.style.setProperty('--ori-soy', px(l.offset[1]))
-        shape.style.clipPath = polygon(outline)
+        const l = cast?.[i === 0 ? 'contact' : 'ambient']
+        wrap.style.opacity = num(l?.opacity ?? 0)
+        if (!l || !cast) return
+        wrap.style.filter = `blur(${px(l.sigma)})`
+        shape.style.left = px(cast.box.x)
+        shape.style.top = px(cast.box.y)
+        shape.style.width = px(cast.box.w)
+        shape.style.height = px(cast.box.h)
+        shape.style.clipPath = polygon(cast.outline)
+        shape.style.setProperty('mask-image', l.mask)
+        shape.style.setProperty('-webkit-mask-image', l.mask)
       })
     }
   }

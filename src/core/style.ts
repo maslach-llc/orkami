@@ -223,6 +223,19 @@ export function shadowAt(height: number, style: Style = DEFAULT_STYLE): {
   }
 }
 
+/**
+ * A cast shadow at a distance from what casts it (D15, contact hardening): its softness as a
+ * standard deviation in sheet px, the contact layer's where the caster touches the surface (a
+ * flap at its crease) widening with the gap as the ambient layer's lift does, and the fraction
+ * of its full strength it keeps, the ambient layer's fade over 300 px. Where a flap meets the
+ * sheet its shadow is sharp and dark; toward its lifted edge it softens and pales.
+ */
+export function penumbra(distance: number, style: Style = DEFAULT_STYLE): { sigma: number; strength: number } {
+  const d = Math.max(0, distance)
+  const c = style.shadows.contact, a = style.shadows.ambient
+  return { sigma: c.blur / 2 + d * a.lift.blur / 4, strength: 1 - a.lift.opacity * Math.min(1, d / 300) }
+}
+
 /** The highest point of a face above the sheet plane in a pose, in sheet units; 0 for a face lying on or under it. */
 export function faceHeight(fold: Fold, pose: Pose, faceId: FaceId): number {
   if (!fold.faces.some(f => f.id === faceId)) throw new Error(`no face ${faceId}`)

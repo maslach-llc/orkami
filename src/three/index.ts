@@ -4,3 +4,4 @@
 // at this module's top: a consumer that does not use the driver never imports `orkami/three`.
 export { buildFold, grainTexture, parseColor, resources, type BuildOptions, type FoldHandle, type PaintFn, type Palette } from './scene.ts'
 export { bleedFor, distanceFor, restingShadow, shadowSoftness, SHADOW_INTENSITY, stage, type Stage, type StageOptions } from './stage.ts'
+export { contactChunk, contactMaterial, contactUniforms, type ContactUniforms } from './contact.ts'

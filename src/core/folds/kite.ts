@@ -19,13 +19,14 @@
 //           C
 //
 // Closed: the kite A p C q, two layers on its upper half, the backs of the two flaps over the
-// top of the kite. Fold order: c1, c2 (independent children of the kite). Unfold order: c2, c1.
+// top of the kite. The two flaps are mirror images and open together (D7), meeting nowhere on
+// the way; `sequence(fold, ['c2', 'c1'])` gives a hand's one-then-the-other.
 // Suits: a square block with a pointed top; kept because the fish base starts from it and the
 // letter glyphs use its 22.5 degree wedges. On a rectangle each crease bisects its own corner
 // angle, so each flap's edge still lands on the diagonal.
 import type { Pt } from '../affine.ts'
 import { assertValid, type Fold } from '../fold.ts'
-import { sequence } from '../schedule.ts'
+import { together } from '../schedule.ts'
 
 export function kite(w: number, h: number): Fold {
   const A: Pt = [0, 0], B: Pt = [w, 0], C: Pt = [w, h], D: Pt = [0, h]
@@ -47,6 +48,6 @@ export function kite(w: number, h: number): Fold {
     root: 'kite',
     suits: ['square'],
   }
-  fold.schedule = sequence(fold, ['c2', 'c1'])
+  fold.schedule = together(fold)
   return assertValid(fold)
 }

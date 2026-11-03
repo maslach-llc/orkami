@@ -4,8 +4,9 @@ import { apply, compose, type Affine, type Pt } from '../src/core/affine.ts'
 import { crease as creaseOf, face as faceOf } from '../src/core/fold.ts'
 import { accordion, blintz, book, cupboard, lift, named, type NamedFold } from '../src/core/folds/index.ts'
 import { flatBack } from '../src/core/pose.ts'
-import { shadowAt } from '../src/core/style.ts'
-import { fits, grainUrl, mount, sidePolygon } from '../src/css/driver.ts'
+import { DEFAULT_STYLE } from '../src/core/style.ts'
+import { sequence } from '../src/core/schedule.ts'
+import { castShadow, fits, grainUrl, mount, sidePolygon } from '../src/css/driver.ts'
 import { wordFold } from '../src/glyphs/layout.ts'
 import { block, type FakeElement } from './fake-dom.ts'
 
@@ -47,9 +48,10 @@ test('the blintz mounts four flaps, each clipped to its corner and hinged at its
 
 test("the schedule's starts and durations land on the flaps as transition delays", () => {
   const { el } = block(300, 300)
+  // A hand's order (the blintz's own schedule opens its corners together): c4 first
   const fold = blintz(300, 300)
-  mount(el, fold, { delay: 100 })
-  const s = fold.schedule!
+  const s = sequence(fold, ['c4', 'c3', 'c2', 'c1'], { step: 30 })
+  mount(el, fold, { delay: 100, schedule: s })
   for (const id of ['tl', 'tr', 'br', 'bl']) {
     const flap = byFace(el, id)
     const e = s.creases[`c${['tl', 'tr', 'br', 'bl'].indexOf(id) + 1}`]!
@@ -135,25 +137,52 @@ test('each side is a box the size of its face, its clip and paper in that box, f
   }
 })
 
-test('a flap at mid-unfold casts a larger, softer shadow than at t = 1, where it casts none', () => {
+test('a lifted flap casts a contact-hardening shadow: sharp and dark at its crease, softer and paler away from it, none at rest', () => {
   const { el } = block(300, 300)
   const fold = blintz(300, 300)
   const h = mount(el, fold)
-  const shadow = () => byFace(el, 'tl').querySelectorAll('.ori-shadow.ambient')[0]!
+  const layer = (name: string) => byFace(el, 'tl').querySelectorAll(`.ori-shadow.${name}`)[0]!
+  const read = (name: string) => ({
+    blur: parseFloat(layer(name).style.filter!.replace(/^blur\(|\)$/g, '')),
+    opacity: parseFloat(layer(name).style.opacity!),
+    mask: layer(name).querySelectorAll('.ori-shadow-shape')[0]!.style.getPropertyValue('mask-image'),
+  })
   h.set(0.5)
-  const mid = { blur: parseFloat(shadow().style.filter!.replace(/^blur\(|\)$/g, '')), offset: parseFloat(shadow().style.getPropertyValue('--ori-soy')), opacity: parseFloat(shadow().style.opacity!) }
-  h.set(1)
-  const flat = { blur: parseFloat(shadow().style.filter!.replace(/^blur\(|\)$/g, '')), offset: parseFloat(shadow().style.getPropertyValue('--ori-soy')), opacity: parseFloat(shadow().style.opacity!) }
-  assert.ok(mid.blur > flat.blur, `mid blur ${mid.blur} over flat ${flat.blur}`)
-  assert.ok(mid.offset > flat.offset, `mid offset ${mid.offset} over flat ${flat.offset}`)
-  assert.ok(mid.opacity > 0)
-  assert.equal(flat.opacity, 0)
-  // At rest the blur and offset are the style's resting stack, halved into CSS blur radius
-  near(flat.blur, shadowAt(0).ambient.blur / 2)
-  near(flat.offset, shadowAt(0).ambient.offset[1])
-  // The shadow's shape is the face's projected outline: the triangle, foreshortened
-  const shape = shadow().querySelectorAll('.ori-shadow-shape')[0]!
+  const contact = read('contact'), ambient = read('ambient')
+  assert.ok(contact.opacity > 0 && ambient.opacity > 0)
+  // The contact layer keeps the resting blur; the ambient one is the penumbra at the flap's middle
+  near(contact.blur, DEFAULT_STYLE.shadows.contact.blur / 2)
+  assert.ok(ambient.blur > contact.blur, `ambient ${ambient.blur} over contact ${contact.blur}`)
+  // Both fade along the flap, from the crease out
+  assert.match(contact.mask, /^linear-gradient\(.+deg, rgb\(0 0 0 \/ 1\) .+px, rgb\(0 0 0 \/ 0\) .+px\)$/)
+  assert.match(ambient.mask, /^linear-gradient\(/)
+  // The shape is the face's outline cast along the light: still a triangle, and meeting the crease
+  const shape = layer('contact').querySelectorAll('.ori-shadow-shape')[0]!
   assert.equal(vertices(shape.style.clipPath!), 3)
+  h.set(1)
+  assert.equal(read('contact').opacity, 0)
+  assert.equal(read('ambient').opacity, 0)
+})
+
+test('castShadow: the outline meets the crease, the contact reach shortens and the penumbra widens as the flap rises', () => {
+  const axis = { point: [0, 0] as Pt, dir: [0, 1] as Pt }
+  // A 100 px flap hinged on the y axis, turned up by a: its far edge at x = 100 cos a, z = 100 sin a
+  const flap = (a: number) => [[0, 0, 0], [100 * Math.cos(a), 0, 100 * Math.sin(a)], [100 * Math.cos(a), 100, 100 * Math.sin(a)], [0, 100, 0]]
+  const light = DEFAULT_STYLE.light.direction
+  const low = castShadow(flap(0.3), axis, [...light], DEFAULT_STYLE)!
+  const high = castShadow(flap(1.3), axis, [...light], DEFAULT_STYLE)!
+  // The crease's points cast onto themselves
+  for (const c of [low, high]) {
+    const abs = c.outline.map(q => [q[0] + c.box.x, q[1] + c.box.y])
+    assert.ok(abs.some(q => Math.hypot(q[0]!, q[1]!) < 1e-9))
+    assert.ok(abs.some(q => Math.hypot(q[0]!, q[1]! - 100) < 1e-9))
+  }
+  assert.ok(high.ambient.sigma > low.ambient.sigma, `${high.ambient.sigma} over ${low.ambient.sigma}`)
+  assert.ok(high.ambient.opacity < low.ambient.opacity)
+  near(high.contact.sigma, low.contact.sigma)
+  // Lying flat it casts nothing; under a parent turned away from the light, nothing either
+  assert.equal(castShadow(flap(0), axis, [...light], DEFAULT_STYLE), undefined)
+  assert.equal(castShadow(flap(1), axis, [light[0], light[1], -light[2]], DEFAULT_STYLE), undefined)
 })
 
 test('the back is painted with the sheet under the inverse of flatBack, mirrored for the turned side', () => {

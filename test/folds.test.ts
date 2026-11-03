@@ -207,9 +207,6 @@ test('a sequenced fold starts its creases in the unfold order, a step apart', ()
   const orders: [Fold, string[]][] = [
     [cupboard(300, 100), ['c2', 'c1']],
     [cupboard(100, 300, 'horizontal'), ['c2', 'c1']],
-    [accordion(100, 300, 3), ['c3', 'c2', 'c1']],
-    [blintz(100, 100), ['c4', 'c3', 'c2', 'c1']],
-    [kite(100, 100), ['c2', 'c1']],
   ]
   for (const [fold, order] of orders) {
     const starts = order.map(id => fold.schedule!.creases[id]!.start)
@@ -220,7 +217,7 @@ test('a sequenced fold starts its creases in the unfold order, a step apart', ()
 })
 
 test('a fold that moves together starts every crease at 0', () => {
-  for (const fold of [book(300, 100), lift(300, 100), diagonal(100, 100), waterbomb(100), preliminary(100)]) {
+  for (const fold of [book(300, 100), lift(300, 100), diagonal(100, 100), waterbomb(100), preliminary(100), blintz(100, 100), kite(100, 100)]) {
     for (const [id, entry] of Object.entries(fold.schedule!.creases)) assert.equal(entry.start, 0, `${fold.name} ${id}`)
   }
 })
