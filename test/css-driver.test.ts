@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { apply, compose, type Affine, type Pt } from '../src/core/affine.ts'
 import { crease as creaseOf, face as faceOf } from '../src/core/fold.ts'
 import { accordion, blintz, book, cupboard, lift, named, type NamedFold } from '../src/core/folds/index.ts'
-import { flatBack } from '../src/core/pose.ts'
+import { flatBack, pose } from '../src/core/pose.ts'
 import { shadowAt } from '../src/core/style.ts'
 import { fits, grainUrl, mount, sidePolygon } from '../src/css/driver.ts'
 import { wordFold } from '../src/glyphs/layout.ts'
@@ -311,4 +311,26 @@ test('a word mounts every letter facet as a flap on the page, with no ground and
   for (const flap of flapsOf(el)) near(deg(flap.style.getPropertyValue('--ori-a')), 0)
   h.destroy()
   assert.equal(el.querySelectorAll('.ori-flap').length, 0)
+})
+
+test('the bases mount a flap for every face but the root and drive them by the pose, which stays above the page', () => {
+  for (const name of ['waterbomb', 'preliminary'] as const) {
+    const { el } = block(300, 300)
+    const fold = named[name](300, 300)
+    const h = mount(el, fold)
+    assert.equal(flapsOf(el).length, fold.faces.length - 1, `${name}: flaps`)
+    // The face joined to the root by the flat crease (the waterbomb's T2, the preliminary's Tl)
+    // never leaves the sheet, so it has no ground to fight its flap for depth (it drew as a hole)
+    assert.equal(el.querySelectorAll('.ori-ground').length, fold.faces.length - 2, `${name}: grounds`)
+    for (const t of [0.3, 0.5, 0.7]) {
+      h.set(t)
+      const p = pose(fold, t)
+      for (const c of fold.creases) {
+        if (c.closing) continue
+        near(deg(byFace(el, c.child).style.getPropertyValue('--ori-a')), p.angles[c.id]! * DEG, 1e-2)
+      }
+      for (const f of Object.values(p.faces)) for (const q of f.pts) assert.ok(q[2] >= -1e-6, `${name} ${f.id} at t = ${t}: z = ${q[2]}`)
+    }
+    h.destroy()
+  }
 })
