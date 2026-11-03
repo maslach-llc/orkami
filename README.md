@@ -87,8 +87,8 @@ await s.play(handle)                 // lit, shadowed, landing flat
 | `blintz` | the four corners folded to the center | square |
 | `diagonal` | one corner folded over the diagonal | square |
 | `kite` | two edges folded to the diagonal | square |
-| `waterbomb` | the base: diagonals mountain, midline valleys, closed by a solver | square |
-| `preliminary` | the base: midlines mountain, diagonals valleys, closed by a solver | square |
+| `waterbomb` | the base: diagonals valley, midlines mountain (seen from the side that faces you), closed by a solver | square |
+| `preliminary` | the base: midlines valley, diagonals mountain (seen from the side that faces you), closed by a solver | square |
 
 A fold built for a rectangle it does not suit still folds honestly; the two bases refuse a
 rectangle, since their pattern cannot close on one. The wordmark glyphs (`wordFold`, `wordSvg`)

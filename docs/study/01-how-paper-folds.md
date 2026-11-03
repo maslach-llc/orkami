@@ -344,6 +344,12 @@ Maekawa, is different: only six of the eight rays at the center are folded.
  D        m3        C
 ```
 
+*Corrected 2026-11-03:* the walk below is the base seen from the front, held by its front layer,
+which puts every other layer behind the root and so below the page. The engine models the same
+paper seen from its back, with T1 + T2 lying on the page and the rest rising toward the visitor:
+every assignment below is inverted in `src/core/folds/waterbomb.ts` (diagonals V, midlines M,
+Maekawa V = 4, M = 2), and the visitor sees the backs of T7 + T8 on top when closed (D10, amended).
+
 Why six: the closed triangle is O A B (base on the top edge, apex at the center), four layers of
 two eighths each. The front layer is T1 + T2, coplanar across O-m1, so O-m1 is flat; O-A and O-B
 turn Tl and Tr behind it (mountain); O-m4 and O-m2 turn Tl' and Tr' behind those (the next fold
@@ -392,6 +398,10 @@ flaps". The closed assignment, by the same layer walk:
   diagonal; the rest behind.
 - Fold and unfold order: as the waterbomb, one coupled motion; the tree roots on T1 + Tl, the
   chains run T2, Tr, Tr' and Tl', T7, T8, and the closing crease is O-C. Maekawa: M = 4, V = 2.
+- *Corrected 2026-11-03:* as for the waterbomb, the engine models this paper from its back, T1 +
+  Tl on the page and the layers rising toward the visitor: assignments inverted in
+  `src/core/folds/preliminary.ts` (midlines V, O-B and O-D M), the visitor sees the backs of
+  Tr' + T8 on top when closed (D10, amended).
 - Suits: a square card that waits as its own top-left quarter (a thumbnail at a quarter of the
   size) and opens to four times the area.
 

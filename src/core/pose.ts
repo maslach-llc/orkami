@@ -97,6 +97,15 @@ function gap(fold: Fold, cl: Closure, angles: Record<CreaseId, number>, tree: Hi
   return (viaChild[0] - viaParent[0]) * cl.across[0] + (viaChild[1] - viaParent[1]) * cl.across[1]
 }
 
+/** How far folded the creases a closure drives are, 0 flat to 1 closed: the mean over the tree creases at its vertex that are folded closed and not solved. */
+function drivenFraction(fold: Fold, cl: Closure, angles: Record<CreaseId, number>): number {
+  const tol = 1e-9 * Math.max(fold.sheet.width, fold.sheet.height, 1)
+  const at = (p: Pt) => Math.hypot(p[0] - cl.vertex[0], p[1] - cl.vertex[1]) < tol
+  const driven = treeCreases(fold).filter(c => c.closed > 0 && !cl.solved.includes(c.id) && (at(c.a) || at(c.b)))
+  if (!driven.length) return 0
+  return driven.reduce((s, c) => s + Math.abs(angles[c.id] ?? 0) / c.closed, 0) / driven.length
+}
+
 /** Solve a closure's shared magnitude by bisection on [0, pi] and write the solved creases' signed angles. */
 function solve(fold: Fold, cl: Closure, angles: Record<CreaseId, number>, tree: HingeTree): void {
   const set = (s: number) => { for (const id of cl.solved) angles[id] = sign(creaseOf(fold, id).assignment) * s }
@@ -104,8 +113,14 @@ function solve(fold: Fold, cl: Closure, angles: Record<CreaseId, number>, tree: 
   const eps = 1e-12 * Math.max(fold.sheet.width, fold.sheet.height, 1)
   let lo = 0, hi = Math.PI
   const glo = at(lo), ghi = at(hi)
-  if (Math.abs(glo) <= eps) { set(lo); return }
-  if (Math.abs(ghi) <= eps) { set(hi); return }
+  // Both ends can close the loop: flat (every solved crease at 0) and, at the fully folded state,
+  // the solved creases at pi. Take the one on the path the driven creases are on: closed while
+  // they are more than half folded, flat otherwise (at t = 0 the solve used to pick flat,
+  // leaving the closed base mis-stacked).
+  const loOk = Math.abs(glo) <= eps, hiOk = Math.abs(ghi) <= eps
+  if (loOk && hiOk) { set(drivenFraction(fold, cl, angles) > 0.5 ? hi : lo); return }
+  if (loOk) { set(lo); return }
+  if (hiOk) { set(hi); return }
   if (Math.sign(glo) === Math.sign(ghi)) {
     // No closing angle: the pattern does not close (a base on a rectangle). Take the nearer end.
     set(Math.abs(glo) < Math.abs(ghi) ? lo : hi)

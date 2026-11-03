@@ -1,10 +1,13 @@
 // Waterbomb base (docs/study/01-how-paper-folds.md 3.7): a square pre-creased on both
 // diagonals and both midlines, collapsed into a triangle with four flaps. Only six of the eight
-// rays at the center are folded in the closed state.
+// rays at the center are folded in the closed state. Assignments are as the visitor sees them,
+// with T1 + T2 lying on the page: the base is the textbook waterbomb seen from its back, so every
+// layer rises toward the visitor as it opens (seen from the front, held by its top layer, the
+// rest would sink through the page).
 //
 //  A        m1        B                 rays from O         closed angle
-//  +--------+---------+                 O-A  O-B  O-C  O-D   M, 180
-//  |\   T1  .   T2   /|                 O-m2 O-m4            V, 180
+//  +--------+---------+                 O-A  O-B  O-C  O-D   V, 180
+//  |\   T1  .   T2   /|                 O-m2 O-m4            M, 180
 //  |  \     .      /  |                 O-m1 O-m3            F, 0  (pre-creased, flat)
 //  |    \   .    /    |
 //  | Tl   \ . /   Tr  |                 faces: eight eighths, T1 = O A m1, T2 = O m1 B,
@@ -16,12 +19,12 @@
 //  +--------+---------+
 //  D        m3        C
 //
-// Closed: the triangle O A B (base on the top edge, apex at the center), four layers; the
-// visitor sees the front of T1 + T2 with a flat crease down its middle. Maekawa at O: M = 4,
-// V = 2. Fold order: the midline as a book fold, then the sides pushed in: one coupled motion.
+// Closed: the triangle O A B (base on the top edge, apex at the center), four layers; T1 + T2
+// lie on the page and the visitor sees the backs of T7 + T8 on top, with a flat crease down the
+// middle. Maekawa at O: V = 4, M = 2. Fold order: the midline as a book fold, then the sides pushed in: one coupled motion.
 // Unfold order: one coupled motion back, every crease at once, the flat ones staying at 0.
 // The tree roots on T1, runs the chains Tl, Tl', T7 and Tr, Tr', T8 outward, and leaves O-C
-// out as the closing crease: the four mountain corners are driven, the two valleys solved so
+// out as the closing crease: the four valley corners are driven, the two mountains solved so
 // the loop closes. Suits: a square that waits as a tab at the top of its place.
 import type { Pt } from '../affine.ts'
 import { assertValid, type Fold } from '../fold.ts'
@@ -43,13 +46,13 @@ export function waterbomb(w: number, h = w): Fold {
     ],
     creases: [
       { id: 'Om1', a: O, b: m1, assignment: 'F', parent: 'T1', child: 'T2', closed: 0 },
-      { id: 'OA', a: O, b: A, assignment: 'M', parent: 'T1', child: 'Tl', closed: Math.PI },
-      { id: 'Om4', a: O, b: m4, assignment: 'V', parent: 'Tl', child: 'Tl2', closed: Math.PI },
-      { id: 'OD', a: O, b: D, assignment: 'M', parent: 'Tl2', child: 'T7', closed: Math.PI },
+      { id: 'OA', a: O, b: A, assignment: 'V', parent: 'T1', child: 'Tl', closed: Math.PI },
+      { id: 'Om4', a: O, b: m4, assignment: 'M', parent: 'Tl', child: 'Tl2', closed: Math.PI },
+      { id: 'OD', a: O, b: D, assignment: 'V', parent: 'Tl2', child: 'T7', closed: Math.PI },
       { id: 'Om3', a: O, b: m3, assignment: 'F', parent: 'T7', child: 'T8', closed: 0 },
-      { id: 'OB', a: O, b: B, assignment: 'M', parent: 'T2', child: 'Tr', closed: Math.PI },
-      { id: 'Om2', a: O, b: m2, assignment: 'V', parent: 'Tr', child: 'Tr2', closed: Math.PI },
-      { id: 'OC', a: O, b: C, assignment: 'M', parent: 'Tr2', child: 'T8', closed: Math.PI, closing: true },
+      { id: 'OB', a: O, b: B, assignment: 'V', parent: 'T2', child: 'Tr', closed: Math.PI },
+      { id: 'Om2', a: O, b: m2, assignment: 'M', parent: 'Tr', child: 'Tr2', closed: Math.PI },
+      { id: 'OC', a: O, b: C, assignment: 'V', parent: 'Tr2', child: 'T8', closed: Math.PI, closing: true },
     ],
     root: 'T1',
     closures: [{ vertex: O, closing: 'OC', solved: ['Om4', 'Om2'], across: [1, 0] }],

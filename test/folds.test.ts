@@ -4,6 +4,7 @@ import { apply, type Pt } from '../src/core/affine.ts'
 import { validate, type Fold } from '../src/core/fold.ts'
 import { accordion, blintz, book, cupboard, diagonal, kite, lift, named, preliminary, waterbomb, type NamedFold } from '../src/core/folds/index.ts'
 import { flatBack, pose } from '../src/core/pose.ts'
+import { stackOrder } from '../src/core/stack.ts'
 import { isIdentity, transform, type Vec3 } from '../src/core/space.ts'
 import { flatFoldable, interiorVertices } from '../src/core/vertex.ts'
 
@@ -156,6 +157,32 @@ test('faces keep their shape through the whole motion', () => {
         s.angles.forEach((a, i) => assert.ok(Math.abs(a - ref.angles[i]!) < eps, `${name} face ${f.id} angle ${i} at t = ${t}: ${a} vs ${ref.angles[i]}`))
       }
     }
+  }
+})
+
+test('no face goes below the sheet: every named fold rises from the page toward the visitor', () => {
+  // Real paper lies on the page by its root face and every other layer lifts toward the
+  // visitor (+z) as it opens; a face with z < 0 would pass through the page. The bases broke
+  // this in 0.1.0 (their assignments were the ones seen from below, so they sank).
+  const tol = 1e-6 * 300
+  for (const name of names) {
+    for (const [w, h] of rectangles) {
+      if ((name === 'waterbomb' || name === 'preliminary') && w !== h) continue
+      const fold = named[name](w, h)
+      for (const t of range(0.05)) {
+        const p = pose(fold, t)
+        for (const f of Object.values(p.faces)) for (const q of f.pts) assert.ok(q[2] >= -tol, `${name} ${w}x${h} face ${f.id} at t = ${t}: z = ${q[2]}`)
+      }
+    }
+  }
+})
+
+test('the closed pose is the stack: every face turns the way stackOrder says it lies at t = 0', () => {
+  // At t = 0 both ends of a base's closure close the loop (flat and folded); the pose must take
+  // the folded one, or the closed base is mis-stacked.
+  for (const [name, fold] of onSquare()) {
+    const p = pose(fold, 0), s = stackOrder(fold)
+    for (const f of fold.faces) assert.equal(Math.sign(Math.round(p.faces[f.id]!.normal[2])), s.up[f.id], `${name} face ${f.id}`)
   }
 })
 
