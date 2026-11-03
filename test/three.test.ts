@@ -3,14 +3,14 @@
 // the paint against tone(), and dispose() by counting what it frees.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Quaternion, Vector3, type BufferGeometry, type Material, type Mesh, type WebGLRenderer } from 'three'
+import { BasicShadowMap, PCFShadowMap, Quaternion, ShaderChunk, Vector3, type BufferGeometry, type Material, type Mesh, type WebGLRenderer } from 'three'
 import { crease as creaseOf, face as faceOf, sign, type Fold } from '../src/core/fold.ts'
 import { accordion, blintz, book, named, waterbomb, type NamedFold } from '../src/core/folds/index.ts'
 import { hingeAxis, pose } from '../src/core/pose.ts'
 import { stackOrder } from '../src/core/stack.ts'
 import { brightness, parseHex, slotTone, style as makeStyle, tone } from '../src/core/style.ts'
 import { glyph, layout, PACKET, wordFold, wordId } from '../src/glyphs/index.ts'
-import { bleedFor, buildFold, parseColor, resources, shadowSoftness, stage } from '../src/three/index.ts'
+import { bleedFor, buildFold, contactChunk, parseColor, resources, shadowSoftness, stage } from '../src/three/index.ts'
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`)
 
@@ -247,6 +247,40 @@ test('the stage: the light from the style, the bleed from the poses, the shadow 
   near(shadowSoftness(0, s), s.shadows.contact.blur / 2)
   assert.ok(shadowSoftness(100, s) > shadowSoftness(10, s))
   st.dispose()
+})
+
+test('the contact-hardening shadow: the basic getShadow replaced, the receivers patched, the blocker search sized from the highest face', () => {
+  const chunk = ShaderChunk.shadowmap_pars_fragment
+  const patched = contactChunk(chunk)
+  // Only the basic branch's function changes: VSM's (same signature) stays three's own
+  assert.equal((patched.match(/float\s+getShadow\s*\(\s*sampler2D\s+shadowMap\b/g) ?? []).length, 2)
+  assert.ok(patched.includes('oriShadowSoft') && patched.includes('p_max'))
+  assert.ok(patched.indexOf('oriShadowSoft') > patched.indexOf('SHADOWMAP_TYPE_VSM'))
+  assert.throws(() => contactChunk('no shadow code here'), /no basic getShadow/)
+  const s = makeStyle()
+  const fake = { setPixelRatio() {}, setClearColor() {}, shadowMap: {}, render() {}, setSize() {}, dispose() {} } as unknown as WebGLRenderer
+  const st = stage({} as HTMLCanvasElement, { width: 200, height: 200, renderer: fake })
+  assert.equal(st.renderer.shadowMap.type, BasicShadowMap)
+  assert.equal((st.floor.material as Material).userData.oriContact, true)
+  const h = buildFold(book(200, 200))
+  st.add(h)
+  const receivers: Material[] = []
+  h.root.traverse(o => { const m = o as Mesh; if (m.isMesh && m.receiveShadow) receivers.push(m.material as Material) })
+  assert.ok(receivers.length > 0)
+  for (const m of receivers) assert.equal(m.userData.oriContact, true)
+  // A program compiled for the patched material carries the uniforms the stage updates
+  const shader = { uniforms: {}, fragmentShader: '#include <shadowmap_pars_fragment>', vertexShader: '' } as unknown as Parameters<Material['onBeforeCompile']>[0]
+  receivers[0]!.onBeforeCompile(shader, fake)
+  assert.ok('oriShadowSoft' in shader.uniforms && shader.fragmentShader.includes('oriShadowRange'))
+  h.set(0.3)
+  st.render()
+  const soft = (shader.uniforms as Record<string, { value: number[] }>).oriShadowSoft!.value
+  near(soft[0]!, s.shadows.contact.blur / 2)
+  near(soft[2]!, 2 * shadowSoftness(h.height, s) + s.shadows.contact.blur)
+  const pcf = stage({} as HTMLCanvasElement, { width: 200, height: 200, renderer: { ...fake, shadowMap: {} } as unknown as WebGLRenderer, shadowFilter: 'pcf' })
+  assert.equal(pcf.renderer.shadowMap.type, PCFShadowMap)
+  assert.equal((pcf.floor.material as Material).userData.oriContact, undefined)
+  st.dispose(); pcf.dispose()
 })
 
 test('play runs t to 1 (and back) on the clock and calls onDone', async () => {

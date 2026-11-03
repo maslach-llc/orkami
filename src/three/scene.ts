@@ -387,7 +387,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
       height = Math.max(height, fh)
       // A face lying in the sheet casts nothing, as in the CSS driver: it is part of the page, not a card on it; lifted, it
       // casts. Only the face that stays put (the root) and the floor receive: a blurred shadow map shades a moving face
-      // with its own neighbours (VSM's light bleeding), which reads as dirt, not as shadow (D15)
+      // with its own neighbours, which reads as dirt, not as shadow (D15)
       const mesh = faces.get(f.id)
       if (mesh) mesh.castShadow = shadows && fh > CAST
     }

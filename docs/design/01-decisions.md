@@ -79,6 +79,20 @@ timings fit it.
 **Rules out.** Physics in the core (springs, damping, strain); per-crease easings as a public
 option in the first release; overshoot; a duration independent of size.
 
+**Amended in 0.1.1: a crease may follow another.** `Entry.follow = { crease, ratio }` couples a
+crease to one that keeps its own time: its folded fraction (|angle| / closed) is `ratio` times the
+leader's, capped at fully folded, and its own start, duration and ease are not read. A chain of
+follows is refused. It exists for the pleat (D7): with the first crease at a fraction f and every
+inner one at 2f, the panels zigzag with their low creases on the table, which a per-crease clock
+cannot express (the ease breaks any fixed ratio between two clocks). A schedule with a follow (or
+a custom ease) is not `transitionable`: the CSS driver plays it on the frame clock, not on
+per-flap transitions. FOLD carries it as `edges_orkami:follow`.
+**Reason.** On a real table a pleat opens all at once and stays on the table; played crease by
+crease, each crease swung everything beyond it through the air as one flat board, which the owner
+saw on a real GPU (2026-11-02, "accordion close is odd, even open is off").
+**Rules out.** Coupling by a shared clock with tuned durations; a solver for the pleat (it has no
+interior vertex: the coupling is exact).
+
 ## D5. One Lambert light, shared by the drivers
 
 **Decision.** One directional light, direction `(-0.346, -0.538, 0.769)` in page coordinates
@@ -132,6 +146,14 @@ Which rectangles each suits, from the geometry there:
 | `waterbomb` | a square that waits as a tab (triangle) at the top of its place | rectangles (the base does not close) |
 | `preliminary` | a square that waits as its own top-left quarter | rectangles |
 | `kite` | a square block with a pointed top | most page blocks; kept for glyphs and the fish |
+
+**Amended in 0.1.1: the default motions.** The owner's look on a real GPU (2026-11-02) found the
+blintz "overcomplicated" and the kite in need of work: four (two) corners each starting a beat
+after the last read as busy, not as a hand. Their flaps never meet on the way (each turns about
+its own side of the diamond, or of the kite, and stays on its side of the mirror between them), so
+they now open together; a hand's order stays one `sequence(...)` call away. The accordion opens as
+a pleat (D4's follow): the stack stands up on c1, fans out along the table in a zigzag whose low
+creases rest on it, and lies flat; folding is the same read back.
 
 The owner's three observations are confirmed with the geometry: the blintz suits squares and not
 tall columns; a list of steps wants a pleat; a wide block on a diagonal reads as a slab.
@@ -299,7 +321,7 @@ fixed bleed (the seed's 20 and 75 percent) clips a tall flap and wastes pixels o
 **Rules out.** A camera that orbits, follows the pointer or the scroll; an orthographic default; a
 vanishing point other than the fold's own center.
 
-## D15. The WebGL light: Lambert in the print's own color space, a soft shadow map from the same light
+## D15. The WebGL light: Lambert in the print's own color space, a contact-hardening shadow from the same light
 
 **Decision.** `MeshLambertMaterial` with flat shading under one `DirectionalLight` from the
 style's direction at intensity `kd * pi` and an `AmbientLight` at `ka * pi`, the print carried as
@@ -324,6 +346,27 @@ per-face shadow pass (PCSS).
 
 **Rules out.** `MeshStandardMaterial`, specular, tone mapping, environment light; a resting shadow
 under a fold lying in the page; per-face shadow softness in the first release.
+
+**Amended in 0.1.1: contact hardening, in both drivers.** One radius per frame from the highest
+face made a lifted flap's shadow as soft and faint at its crease as at its tip, and the CSS
+driver's stack, offset and blurred by the face's highest point, did the same and drifted off the
+crease: the owner saw it on a real GPU as shadows that "fade the wrong way" (2026-11-02). Paper's
+shadow is sharp and dark where the flap meets the sheet and softens and pales with the gap. Now
+both follow one law, `penumbra(gap)`: a standard deviation of `contact.blur / 2` at contact
+growing by `ambient.lift.blur / 4` per px of gap, the strength losing `ambient.lift.opacity` over
+300 px. WebGL: percentage-closer soft shadows (Fernando 2005, as three's `webgl_shadowmap_pcss`
+example) in the receivers' shader (the floor and the root), on a plain depth map
+(`BasicShadowMap`): a blocker search finds the gap per fragment and the filter radius follows it;
+VSM is gone (it has one radius for the whole map). CSS: each flap's outline cast along the light
+onto its parent's plane (so it meets the crease), in its own box, a contact layer at the resting
+blur masked out over the first `2 * contact.fade` px of gap and an ambient layer at the penumbra of
+the flap's middle, masked paler toward the far edge. `shadowFilter: 'pcf'` keeps the one-radius
+filter.
+**Reason.** It is what makes a hinged flap read as attached to the sheet. Per-fragment softness is
+the only way the WebGL map can be sharp and soft at once; PCSS's cost (48 depth taps per receiving
+fragment) is on the floor and the root only.
+**Rules out.** A per-face shadow pass; a shadow that does not meet its crease; the CSS stack's
+fixed 16 px drop under a hinged flap (it stays for a resting glyph, `shadowAt(0)`).
 
 ## D16. The WebGL canvas exists only while the unfold plays
 

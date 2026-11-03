@@ -11,14 +11,18 @@
 //  |          P3           |
 //  +-----------------------+
 //
-// Closed: W x H/(n+1), n + 1 layers, P1 on P0, P2 under P1, and so on. Fold order: c1, c2,
-// c3: the hand pleats from the fixed end. Unfold order: cn, ..., c1: the outermost panel swings
-// out first and lands beside the stack, then the next carries the one already open, the way a
-// carpet unrolls. Suits: a list of steps or a tall column on horizontal creases; a strip of
+// Closed: W x H/(n+1), n + 1 layers, P1 on P0, P2 under P1, and so on. The motion is the
+// pleat's own, all creases at once (D17): c1 opens on its time and every other crease follows
+// it at twice its folded fraction. Unfolding, the stack first stands up on c1 (c1 to 90 degrees,
+// the others still shut), then the panels fan out along the table in a zigzag whose low creases
+// stay on it and slide away from c1, until the sheet lies flat. Folding is the same read back.
+// Nothing swings through the air carrying the flat rest of the sheet, as a crease-by-crease
+// sequence did. Suits: a list of steps or a tall column on horizontal creases; a strip of
 // letters or cards side by side on vertical creases.
 import type { Pt } from '../affine.ts'
 import { assertValid, type Crease, type Face, type Fold } from '../fold.ts'
-import { sequence } from '../schedule.ts'
+import { creaseDuration, type Schedule } from '../schedule.ts'
+import { reach } from '../tree.ts'
 
 export type Axis = 'horizontal' | 'vertical'
 
@@ -53,6 +57,13 @@ export function accordion(w: number, h: number, n = 3, axis: Axis = 'horizontal'
     root: 'p0',
     suits: horizontal ? ['list', 'tall'] : ['wide'],
   }
-  fold.schedule = sequence(fold, creases.map(c => c.id).reverse())
+  fold.schedule = pleat(fold)
   return assertValid(fold)
+}
+
+/** c1 on its own time for the whole motion, every inner crease following it at 2 (D17); as long as c1's flap takes to swing, the reach of the whole pleat. */
+function pleat(fold: Fold): Schedule {
+  const creases: Schedule['creases'] = {}
+  for (const c of fold.creases) creases[c.id] = c.id === 'c1' ? { start: 0, duration: 1 } : { start: 0, duration: 1, follow: { crease: 'c1', ratio: 2 } }
+  return { creases, total: creaseDuration(reach(fold, 'c1')) }
 }

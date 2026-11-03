@@ -7,8 +7,9 @@
 //
 // The light is the style's direction (page coordinates, toward the light) with ka and kd as the
 // ambient and directional intensities (times pi: three's Lambert divides by it), and the canvas
-// is drawn with no output encoding, so a face shows `tone()` exactly (scene.ts). The shadow map
-// softens with the highest face's height and tightens as it lands, from `shadowAt()`.
+// is drawn with no output encoding, so a face shows `tone()` exactly (scene.ts). The shadow is
+// contact hardening (contact.ts, D15): sharp where a flap meets the sheet, softening and paling
+// with the gap, by `penumbra()`, the law the CSS driver draws with.
 import {
   AmbientLight,
   DirectionalLight,
@@ -16,8 +17,8 @@ import {
   LinearSRGBColorSpace,
   Mesh,
   NoToneMapping,
+  BasicShadowMap,
   PCFShadowMap,
-  VSMShadowMap,
   type ShadowMapType,
   PerspectiveCamera,
   PlaneGeometry,
@@ -28,7 +29,8 @@ import {
 import type { Fold } from '../core/fold.ts'
 import { pose } from '../core/pose.ts'
 import { together, type Schedule } from '../core/schedule.ts'
-import { shadowAt, style as makeStyle, type Style, type StyleOverrides } from '../core/style.ts'
+import { penumbra, shadowAt, style as makeStyle, type Style, type StyleOverrides } from '../core/style.ts'
+import { contactMaterial, contactUniforms } from './contact.ts'
 import type { FoldHandle } from './scene.ts'
 
 export interface StageOptions {
@@ -45,7 +47,7 @@ export interface StageOptions {
   pixelRatio?: number
   /** The shadow map's size. 1024 by default. */
   shadowMap?: number
-  /** The shadow filter: 'soft' (VSM, a blurred map whose radius follows the height; the default) or 'pcf' (three's PCFShadowMap, cheaper, dithered at large radii). */
+  /** The shadow filter: 'soft' (contact hardening, the default: sharp at the crease, softer with the gap, D15) or 'pcf' (three's PCFShadowMap with one radius from the highest face, cheaper). */
   shadowFilter?: 'soft' | 'pcf'
   /** A renderer to draw with instead of making one on the canvas (a test, a shared context). */
   renderer?: WebGLRenderer
@@ -121,11 +123,9 @@ export const restingShadow = (s: Style) => {
 /** How much of a face's direct light a shadow takes: tuned so a shadow on a face darkens it as much as the floor's shadow darkens the page. */
 export const SHADOW_INTENSITY = 0.5
 
-/** The shadow's blur radius (a standard deviation, sheet px) at a height: the contact layer's at touchdown, the ambient layer's as the face lifts, from `shadowAt()`. */
+/** The shadow's blur radius (a standard deviation, sheet px) a gap of `height` gives, `penumbra()`'s: the contact layer's at touchdown, widening with the gap. */
 export function shadowSoftness(height: number, s: Style): number {
-  const r = shadowAt(height, s)
-  const lift = Math.min(1, Math.max(0, height) / s.shadows.contact.fade)
-  return (r.contact.blur / 2) * (1 - lift) + (r.ambient.blur / 2) * lift
+  return penumbra(height, s).sigma
 }
 
 export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: StageOptions): Stage {
@@ -142,7 +142,8 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   renderer.outputColorSpace = LinearSRGBColorSpace
   renderer.toneMapping = NoToneMapping
   renderer.shadowMap.enabled = true
-  const filter: ShadowMapType = options.shadowFilter === 'pcf' ? PCFShadowMap : VSMShadowMap
+  const pcf = options.shadowFilter === 'pcf'
+  const filter: ShadowMapType = pcf ? PCFShadowMap : BasicShadowMap
   renderer.shadowMap.type = filter
 
   const scene = new Scene()
@@ -177,17 +178,32 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   floor.position.z = -0.5
   floor.receiveShadow = true
   scene.add(floor)
+  // The contact-hardening shadow, read by the floor and by each handle's root face (the receivers)
+  const contact = contactUniforms(style)
+  contact.oriShadowRange.value = light.shadow.camera.far - light.shadow.camera.near
+  if (!pcf) contactMaterial(floor.material as ShadowMaterial, contact)
+  const receive = (handle: FoldHandle) => {
+    if (pcf) return
+    handle.root.traverse((o) => {
+      const m = o as Mesh
+      if (!m.isMesh || !m.receiveShadow) return
+      for (const x of Array.isArray(m.material) ? m.material : [m.material]) contactMaterial(x, contact)
+    })
+  }
 
   const content = new Group()
   content.position.set(-W / 2, H / 2, 0)
   scene.add(content)
   const handles = new Set<FoldHandle>()
   const texel = (2 * ext) / size
+  contact.oriShadowTexel.value = texel
 
   const render = () => {
     let h = 0
     for (const x of handles) h = Math.max(h, x.height)
-    light.shadow.radius = Math.max(1, shadowSoftness(h, style) / texel)
+    // pcf: one radius from the highest face; soft: the blocker search reaches the widest penumbra a face this high casts
+    if (pcf) light.shadow.radius = Math.max(1, shadowSoftness(h, style) / texel)
+    else contact.oriShadowSoft.value[2] = 2 * shadowSoftness(h, style) + style.shadows.contact.blur
     renderer.render(scene, camera)
   }
 
@@ -239,7 +255,7 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
     floor,
     content,
     style,
-    add(handle) { handles.add(handle); content.add(handle.root) },
+    add(handle) { handles.add(handle); receive(handle); content.add(handle.root) },
     remove(handle) { handles.delete(handle); content.remove(handle.root) },
     resize(w, h) {
       renderer.setSize(Math.max(1, Math.round(w)), Math.max(1, Math.round(h)), false)

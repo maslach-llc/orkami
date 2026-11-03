@@ -19,6 +19,14 @@ export interface Entry {
   duration: number
   /** Defaults to `paper`. Not a public option in the first release (D4). */
   ease?: Ease
+  /**
+   * The crease is coupled to another instead of keeping its own time (D17): its folded fraction
+   * (|angle| / closed) is `ratio` times the other crease's, capped at fully folded. `start`,
+   * `duration` and `ease` are then not read. A pleat's inner creases follow its first at 2, so
+   * the panels zigzag with their low creases on the table (docs/study/01-how-paper-folds.md 3.6).
+   * The crease followed keeps its own time; a chain of follows is refused.
+   */
+  follow?: { crease: CreaseId; ratio: number }
 }
 
 export interface Schedule {
@@ -76,12 +84,25 @@ export function progress(entry: Entry, t: number): number {
   return (entry.ease ?? paper)(Math.min(1, Math.max(0, x)))
 }
 
+/** A crease's folded fraction at t, in [0, 1]: 1 closed, 0 flat; a coupled crease's from the one it follows. */
+export function foldedAt(schedule: Schedule, creaseId: CreaseId, t: number): number {
+  const entry = schedule.creases[creaseId] ?? { start: 0, duration: 1 }
+  if (entry.follow) {
+    const lead = schedule.creases[entry.follow.crease]
+    if (lead?.follow) throw new Error(`crease ${creaseId} follows ${entry.follow.crease}, which follows another`)
+    return Math.min(1, Math.max(0, entry.follow.ratio * (1 - progress(lead ?? { start: 0, duration: 1 }, t))))
+  }
+  return 1 - progress(entry, t)
+}
+
 /** A crease's signed angle at t, in radians: closed * (1 - ease(progress)), valley positive. A crease the schedule does not list moves over the whole of t. */
 export function angleAt(fold: Fold, creaseId: CreaseId, schedule: Schedule, t: number): number {
   const c = creaseOf(fold, creaseId)
-  const entry = schedule.creases[creaseId] ?? { start: 0, duration: 1 }
-  return sign(c.assignment) * c.closed * (1 - progress(entry, t))
+  return sign(c.assignment) * c.closed * foldedAt(schedule, creaseId, t)
 }
+
+/** Whether every crease keeps its own time on the one easing, so a CSS transition per crease can play the schedule (no follows, no custom ease). */
+export const transitionable = (schedule: Schedule) => Object.values(schedule.creases).every(e => !e.follow && !e.ease)
 
 interface Options {
   /** The base duration in ms (BASE). */

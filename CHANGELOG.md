@@ -16,6 +16,27 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 - The CSS driver no longer draws a hole where a face stays in the sheet beside the root (the
   waterbomb's T2, the preliminary's Tl): such a face gets no ground to fight its flap for depth.
 
+### Changed
+
+- Shadows are contact hardening in both drivers (D15): sharp and dark where a flap meets the sheet,
+  softer and paler with the gap, by the new `penumbra()`. WebGL uses percentage-closer soft
+  shadows on a plain depth map in place of VSM's one radius per frame; the CSS driver casts each
+  flap along the light onto its parent's plane, meeting its crease, with a contact layer and a
+  penumbra layer masked along the flap. Before, a lifted flap's shadow was as soft and faint at its
+  crease as at its tip.
+- The accordion opens as a pleat: all creases at once, the inner ones at twice the first, so it
+  stands up on its first crease and fans out along the table instead of swinging each opened run
+  through the air.
+- The blintz and the kite open their flaps together; `sequence(...)` still gives a hand's order.
+- `shadowSoftness(height)` is now `penumbra(height).sigma`.
+
+### Added
+
+- `Entry.follow` (a crease coupled to another), `foldedAt` and `transitionable` in the schedule;
+  FOLD carries a follow as `edges_orkami:follow`.
+- `penumbra()` in the core; `castShadow()` in the CSS driver; `contactUniforms`,
+  `contactMaterial` and `contactChunk` in the WebGL driver.
+
 ## [0.1.0] - 2026-11-02
 
 The first release: the engine, two drivers, the Vue adapter and the playground.

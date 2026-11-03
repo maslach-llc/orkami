@@ -174,6 +174,9 @@ export function toFOLD(fold: Fold): FOLD {
     ...(fold.schedule ? {
       'edges_orkami:start': creaseOnEdge.map(c => c && fold.schedule!.creases[c.id] ? fold.schedule!.creases[c.id]!.start : null),
       'edges_orkami:duration': creaseOnEdge.map(c => c && fold.schedule!.creases[c.id] ? fold.schedule!.creases[c.id]!.duration : null),
+      ...(Object.values(fold.schedule.creases).some(e => e.follow) ? {
+        'edges_orkami:follow': creaseOnEdge.map(c => { const f = c && fold.schedule!.creases[c.id]?.follow; return f ? [f.crease, f.ratio] : null }),
+      } : {}),
       'frame_orkami:total': fold.schedule.total,
     } : {}),
     'frame_orkami:sheet': { width: fold.sheet.width, height: fold.sheet.height, ...(fold.sheet.cut ? { cut: true } : {}) },
@@ -299,6 +302,7 @@ export function fromFOLD(json: FOLD, options: FromFOLDOptions = {}): Fold {
   const closingFlags = arrayKey<unknown>(frame, 'edges_orkami:closing', ne)
   const starts = arrayKey<unknown>(frame, 'edges_orkami:start', ne)
   const durations = arrayKey<unknown>(frame, 'edges_orkami:duration', ne)
+  const follows = arrayKey<unknown>(frame, 'edges_orkami:follow', ne)
   const parents = arrayKey<unknown>(frame, 'faces_orkami:parent', nf)
 
   interface EdgeInfo { faces: number[], assignment: Assignment, closed: number, id: CreaseId, a: Pt, b: Pt }
@@ -432,7 +436,11 @@ export function fromFOLD(json: FOLD, options: FromFOLDOptions = {}): Fold {
     const entries: Schedule['creases'] = {}
     for (const [e, info] of creaseEdges) {
       const start = starts[e], duration = durations[e]
-      if (typeof start === 'number' && typeof duration === 'number') entries[info.id] = { start, duration }
+      if (typeof start !== 'number' || typeof duration !== 'number') continue
+      const f = follows?.[e]
+      entries[info.id] = isArray(f) && typeof f[0] === 'string' && typeof f[1] === 'number'
+        ? { start, duration, follow: { crease: f[0], ratio: f[1] } }
+        : { start, duration }
     }
     const total = frame['frame_orkami:total']
     fold.schedule = { creases: entries, total: typeof total === 'number' ? total : BASE }
