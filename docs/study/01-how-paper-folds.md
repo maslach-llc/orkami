@@ -312,6 +312,15 @@ is hinged to the panel before it: a chain.
   next swings out carrying the one already open, and so on. The open length doubles at each
   step; the far end travels at every step, the way a carpet unrolls. Opening c1 first would
   swing the whole stack as one packet: that is the "flying" the owner rejected.
+- **Revised 2026-11-02 (0.1.1), after the owner's look on a real GPU:** played crease by crease,
+  the carpet still swings each opened run through the air as one flat board, and a real pleat on
+  a table does not move that way. It opens all at once: with c1 at angle a and every other crease
+  at 2a, P1 rises at a, P2 comes back down at -a, P3 rises again, so the even creases are the
+  ridges and the odd ones (c3, c5, ...) rest on the table and slide toward c1. Unfolding from
+  closed, the inner creases stay shut until c1 reaches 90 degrees (the stack stands up on c1),
+  then the zigzag fans out to flat. Checked in `test/pleat.test.ts`: no face goes below the sheet
+  at any t, and while c1 is under 90 degrees the low creases are at z = 0. It is the schedule's
+  follow (D4 amended).
 - Suits: a list of steps (one panel per step) on horizontal creases: **the owner's third
   observation, confirmed**: a list wants a pleat; a tall column likewise; a strip of letters or
   cards side by side on vertical creases (the wordmark is an accordion of letters, each letter's

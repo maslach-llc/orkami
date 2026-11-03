@@ -48,13 +48,14 @@ One line per export; the file each lives in is the heading.
 ## schedule.ts: time
 
 - `Ease`: `(x) => y` on [0, 1]. `cubicBezier(x1, y1, x2, y2)`: a CSS timing function solved numerically. `paper`: `cubic-bezier(.22, .75, .25, 1)`, the one easing for all paper (D4).
-- `Entry`: `{ start, duration, ease? }` in units of t. `Schedule`: `{ creases: Record<CreaseId, Entry>, total }` with `total` the whole motion's length in milliseconds at the default pace (D11).
+- `Entry`: `{ start, duration, ease?, follow? }` in units of t; `follow: { crease, ratio }` couples the crease to another (its folded fraction is `ratio` times the other's, capped at 1; start, duration and ease are then not read; no chains), the pleat's motion (D4). `Schedule`: `{ creases: Record<CreaseId, Entry>, total }` with `total` the whole motion's length in milliseconds at the default pace (D11).
 - `BASE` 640 ms, `REACH` 240 px, `STEP` 60 ms. `creaseDuration(reach, base)`: `base * clamp(sqrt(reach / 240), .6, 1.6)` ms.
 - `together(fold)`: every crease from 0, Origami Simulator's slider; the only schedule a coupled base takes.
 - `sequence(fold, order, { step, base })`: the creases in `order` (the unfold order: outermost flap first) start `step` ms apart and overlap: a hand's gesture; over sibling flaps, the seed's stagger.
 - `stepwise(fold, order, { gap, base })`: each crease starts when the one before has finished plus `gap` ms: a list read one step at a time.
 - `timed(fold, starts, { base })`: each crease starting at its given ms (unlisted ones at 0), running for its reach's duration: the builder the three above are cases of, for a choreography of its own (the word fold's letters).
-- `progress(entry, t)`: the eased progress. `angleAt(fold, creaseId, schedule, t)`: `sign * closed * (1 - ease(progress))`.
+- `progress(entry, t)`: the eased progress. `foldedAt(schedule, creaseId, t)`: the folded fraction, 1 closed, 0 flat, a follower's from its leader. `angleAt(fold, creaseId, schedule, t)`: `sign * closed * foldedAt(...)`.
+- `transitionable(schedule)`: whether every crease keeps its own time on the one easing (no follow, no custom ease), so the CSS driver may play it on per-flap transitions.
 
 ## pose.ts: the pose at t
 
@@ -89,6 +90,7 @@ One line per export; the file each lives in is the heading.
 - `creaseGradient(face, crease, style?)`: `{ from, to, stops }`: from the hinge midpoint to 2.2 times the way to the centroid, stops at 0, `depth` and 1 scaled from `strength` so the seed's `.46 / .1 / .18` come back for strength .46.
 - `occlusion(angle, style?)`: the per-frame darkening at a crease, `occlusion * |angle| / pi` (02, cue 8).
 - `shadowAt(height, style?)`: `{ contact: { offset, blur, opacity }, ambient: { offset, blur, spread, opacity } }` by 02 cue 3: the logo's resting stack at 0, drifting, softening and fading with height; the contact layer gone by `fade` px.
+- `penumbra(gap, style?)`: `{ sigma, strength }`, a cast shadow at `gap` px from what casts it (D15): the contact layer's softness at touchdown, widening by `ambient.lift.blur / 4` per px, and the fraction of its strength it keeps (`ambient.lift.opacity` lost over 300 px). Both drivers' contact-hardening shadows follow it.
 - `faceHeight(fold, pose, faceId)`: the face's highest point above the sheet plane, 0 when flat or behind.
 - `parseHex`, `hex`, `scaleColor`: the color arithmetic.
 
@@ -108,12 +110,12 @@ Each takes a rectangle and returns a validated `Fold` with `name`, `suits` and i
 | `book(w, h, side = 'left')` | one midline crease; `side` is the half that stays (`a`), `b` folds over it | wide, tall, square | together |
 | `lift(w, h, edge = 'top')` | the block (`block`) hinged on one of its own edges to the page (`page`, the root, outside the box); waits mirrored across the edge, back up | wide, square, tall, list | together |
 | `cupboard(w, h, axis = 'vertical')` | quarter-line creases `c1`, `c2`; doors `l`/`r` (or `t`/`b`) onto the middle `c` | vertical: wide; horizontal: tall | sequence c2, c1 |
-| `accordion(w, h, n = 3, axis = 'horizontal')` | n creases alternating V, M; panels `p0..pn` as a chain | horizontal: list, tall; vertical: wide | sequence cn .. c1 |
-| `blintz(w, h)` | the four corners `tl tr br bl` to the center on `c1..c4`; on a rectangle the corner lands where the reflection puts it | square (to about 5:4) | sequence c4 .. c1, step 30 |
+| `accordion(w, h, n = 3, axis = 'horizontal')` | n creases alternating V, M; panels `p0..pn` as a chain | horizontal: list, tall; vertical: wide | a pleat: c1 on its time, the others following at 2 (stands up on c1, fans out on the table) |
+| `blintz(w, h)` | the four corners `tl tr br bl` to the center on `c1..c4`; on a rectangle the corner lands where the reflection puts it | square (to about 5:4) | together |
 | `diagonal(w, h, corner = 'tr')` | one corner-to-corner crease; the triangle with `corner` (`b`) over the other (`a`) | square (to about 5:4) | together |
 | `waterbomb(w, h = w)` | square only (throws otherwise); eight eighths `T1 T2 Tl Tl2 T7 T8 Tr Tr2`, rays `OA OB OC OD Om1..Om4`; `OC` closing | square | together |
 | `preliminary(w, h = w)` | square only; the same faces with the inverse assignment; `OC` closing, flat | square | together |
-| `kite(w, h)` | two valleys `c1`, `c2` from the top-left corner bringing the left and top edges onto the diagonal; `left`, `right` over `kite` | square | sequence c2, c1 |
+| `kite(w, h)` | two valleys `c1`, `c2` from the top-left corner bringing the left and top edges onto the diagonal; `left`, `right` over `kite` | square | together |
 
 - `Side` (`book`), `Edge` (`lift`), `CupboardAxis`, `AccordionAxis`, `Corner` (`diagonal`): the option types.
 - `NamedFold`: the nine names. `named`: `Record<NamedFold, (w, h) => Fold>` with each function's defaults, for an adapter picking a fold by a block's shape and `suits`.
