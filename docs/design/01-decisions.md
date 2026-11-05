@@ -263,7 +263,9 @@ builder rather than a magic step.
 is 0, a child closing at pi lies one layer over its parent for a valley and one under for a
 mountain (over meaning the side of the parent's normal, so a pleat's panels come out 0, 1, 2, ...
 as they stack), composed down the hinge tree from the same rule `toFOLD` writes as `faceOrders`.
-A crease that does not close flat steps 0. The CSS driver lifts each flap by its crease's step
+A crease that does not close flat steps 0. Siblings folded onto the same side of their parent
+that overlap there stack in the fold's order, a later one past the whole flap of an earlier one
+(amended in 0.1.1, for the glyphs folded onto their middle). The CSS driver lifts each flap by its crease's step
 times a fixed epsilon (`--ori-layer`, half a pixel) along its parent's normal, before the hinge
 rotation, so at t = 0 the stacked faces sit at distinct depths in the order the paper has them,
 and at t = 1 the tiling faces are offset by less than a pixel of depth, below what perspective
@@ -286,8 +288,15 @@ box) and whose letters each hang on it by their glyph's own hinge (`Glyph.hinge`
 left or top edge) on a valley that closes at `PACKET` (0.08 pi), the letter's facets being its
 glyph's fold below that root. A crease whose parent is a page face need only lie inside or on the
 page (`validate`), not on its outline: the page is the ground, and paper can be held to it along
-any line. The schedule is the seed's, built in milliseconds by `timed`: letter i starts at
-`i * 70` ms, its k-th crease `k * 60` ms after, each crease running for its reach (D4). This
+any line. The schedule is built in milliseconds by `timed`: letter i starts at `i * 70` ms, and
+its creases open in its glyph's `order`, the top of the folded packet first, each starting 0.8 of
+the way into the one before, each running for its reach (D4). Amended in 0.1.1: the seed's step
+(the k-th crease `k * 60` ms after, root first, each glyph rooted at its first facet) swung whole
+packets that lay outside the letter (the C's arms folded out along its top, the M's legs below the
+baseline, the H's bar out to its left) through the air with the flaps still opening on them, and
+the owner judged the motion off. Each glyph is now rooted in its middle facet, so the closed packet
+lies in the letter's own place and every flap opens off it on its own crease; the overlap keeps
+the flaps from passing through each other (a test samples the word for it). This
 narrows D1 for this one case: a letter's root does not rest at 0 or 180 degrees in the closed
 state but starts lifted by the packet angle on its own edge and settles flat while its facets open
 out of it. `packet: 0` is the strict D1 form, the packet lying flat in its place.

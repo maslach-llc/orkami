@@ -226,7 +226,8 @@ test('the crease hairlines come in over the last third and use the style\'s colo
   assert.deepEqual(shade, { rgb: [1, 1, 1], alpha: 0.4 })
   for (const [id, l] of h.lines) {
     const m = l.material as Material & { color: { r: number } }
-    const isShade = /shade/.test(faceOf(fold, creaseOf(fold, id).child).slot ?? '')
+    // On shade where the crease is a shade face's seam (the seed's: the crease that face hung on)
+    const isShade = id !== 'fold-right'
     near(m.opacity, isShade ? 0.4 : 0.3)
     near(m.color.r, isShade ? 1 : 0)
   }

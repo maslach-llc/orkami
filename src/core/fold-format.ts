@@ -169,6 +169,7 @@ export function toFOLD(fold: Fold): FOLD {
     'faces_orkami:parent': fold.faces.map(f => { const p = tree.parent[f.id]; return p == null ? null : faceIndex.get(p)! }),
     ...(fold.faces.some(f => f.slot !== undefined) ? { 'faces_orkami:slot': fold.faces.map(f => f.slot ?? null) } : {}),
     ...(fold.faces.some(f => f.page) ? { 'faces_orkami:page': fold.faces.map(f => !!f.page) } : {}),
+    ...(fold.faces.some(f => f.seam) ? { 'faces_orkami:seam': fold.faces.map(f => f.seam ?? null) } : {}),
     'edges_orkami:id': creaseOnEdge.map(c => c?.id ?? null),
     ...(fold.creases.some(c => c.closing) ? { 'edges_orkami:closing': creaseOnEdge.map(c => c ? !!c.closing : null) } : {}),
     ...(fold.schedule ? {
@@ -267,6 +268,7 @@ export function fromFOLD(json: FOLD, options: FromFOLDOptions = {}): Fold {
   const faceIds = arrayKey<unknown>(frame, 'faces_orkami:id', nf)
   const slots = arrayKey<unknown>(frame, 'faces_orkami:slot', nf)
   const pages = arrayKey<unknown>(frame, 'faces_orkami:page', nf)
+  const seams = arrayKey<unknown>(frame, 'faces_orkami:seam', nf)
   const faces: Face[] = faces_vertices.map((fv, i) => {
     if (!isArray(fv)) throw new Error(`FOLD face ${i} has no vertices`)
     const pts = fv.map(v => {
@@ -278,6 +280,7 @@ export function fromFOLD(json: FOLD, options: FromFOLDOptions = {}): Fold {
     const slot = slots?.[i]
     if (typeof slot === 'string') face.slot = slot as Slot
     if (pages?.[i]) face.page = true
+    if (typeof seams?.[i] === 'string') face.seam = seams[i] as string
     return face
   })
   const faceOf = (id: string) => faces.findIndex(f => f.id === id)

@@ -28,6 +28,13 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   stands up on its first crease and fans out along the table instead of swinging each opened run
   through the air.
 - The blintz and the kite open their flaps together; `sequence(...)` still gives a hand's order.
+- The wordmark unfolds from packets that lie in each letter's own place: every glyph is rooted in
+  its middle facet (the M folded in half on its centre crease, the S and the C folded in onto their
+  middles, the H's stems over its bar) and opens its flaps one after the other, the top of the
+  packet first (`Glyph.order`), each starting most of the way into the one before (`OVERLAP`,
+  `wordFold`'s `overlap`). Before, the whole folded packet swung through the air on each crease
+  with the next flaps still opening on it, and pieces of the C and the H flew out of their letters.
+  `step` still gives the seed's fixed 60 ms step. The resting lockup is unchanged.
 - `shadowSoftness(height)` is now `penumbra(height).sigma`.
 
 ### Added
@@ -36,6 +43,10 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   FOLD carries a follow as `edges_orkami:follow`.
 - `penumbra()` in the core; `castShadow()` in the CSS driver; `contactUniforms`,
   `contactMaterial` and `contactChunk` in the WebGL driver.
+- `Face.seam`, `seamOf()` and `shadeSeams()`: the crease a shade face's gradient and hairline
+  colour come from when it is not the one the face hangs on (FOLD `faces_orkami:seam`).
+- `stackOrder` stacks overlapping siblings folded onto the same side, the later over the whole of
+  the earlier (D12).
 
 ## [0.1.0] - 2026-11-02
 

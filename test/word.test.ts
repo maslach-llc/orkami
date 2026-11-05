@@ -8,7 +8,7 @@ import { pose } from '../src/core/pose.ts'
 import { timed } from '../src/core/schedule.ts'
 import { DEFAULT_STYLE, shadowAt } from '../src/core/style.ts'
 import { isIdentity } from '../src/core/space.ts'
-import { FACET_STEP, LETTER_STEP, layout, PACKET, wordFold, wordId, wordSvg } from '../src/glyphs/index.ts'
+import { FACET_STEP, LETTER_STEP, OVERLAP, layout, PACKET, wordFold, wordId, wordSvg } from '../src/glyphs/index.ts'
 
 const near = (a: number, b: number, eps = 1e-9) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`)
 
@@ -47,12 +47,19 @@ test('the word is one sound fold: the page, every letter hung on it by its own h
     near(c.closed, PACKET)
     assert.deepEqual(c.a, [letter.glyph.hinge[0][0] + letter.x, letter.glyph.hinge[0][1]])
   }
-  // The seed's choreography: letter i at i * 70 ms, its k-th crease k * 60 ms later
+  // Letter i at i * 70 ms; its creases in the glyph's order, each OVERLAP of the way into the one before
   const s = fold.schedule!
-  for (const f of w.faces) {
-    const id = f.crease ? wordId(f.letter, f.crease.id) : wordId(f.letter, 'hinge')
-    near(s.creases[id]!.start * s.total, f.letter * LETTER_STEP + f.index * FACET_STEP, 1e-6)
+  const ms = (id: string) => s.creases[id]!.start * s.total
+  const run = (id: string) => s.creases[id]!.duration * s.total
+  for (const [i, letter] of w.letters.entries()) {
+    near(ms(wordId(i, 'hinge')), i * LETTER_STEP, 1e-6)
+    const order = letter.glyph.order.map(c => wordId(i, c))
+    near(ms(order[0]!), i * LETTER_STEP, 1e-6)
+    for (let k = 1; k < order.length; k++) near(ms(order[k]!), ms(order[k - 1]!) + OVERLAP * run(order[k - 1]!), 1e-6)
   }
+  // The seed's fixed step on request: the k-th crease of the order k * 60 ms after its letter
+  const seed = wordFold('MASLACH', { step: FACET_STEP }).schedule!
+  for (const [i, letter] of w.letters.entries()) letter.glyph.order.forEach((c, k) => near(seed.creases[wordId(i, c)]!.start * seed.total, i * LETTER_STEP + k * FACET_STEP, 1e-6))
   // Flat at t = 1, and the letters' slots carried over
   for (const p of Object.values(pose(fold, 1).faces)) assert.ok(isIdentity(p.matrix))
   assert.deepEqual(fold.faces.slice(1, 5).map(f => f.slot), ['lit', 'shade', 'lit2', 'shade2'])
@@ -80,4 +87,36 @@ test('wordSvg draws the resting lockup from the style, with no DOM', () => {
   const bare = wordSvg('M', { shadow: false, grain: false })
   assert.ok(!bare.inner.includes('feDropShadow') && !bare.inner.includes('feTurbulence'))
   assert.ok(wordSvg('M', { style: { tones: { lit: [{ top: 'var(--a)', bottom: 'var(--a)' }, { top: '#000', bottom: '#000' }] } } }).inner.includes('stop-color="var(--a)"'))
+})
+
+test('no two faces of a letter pass through each other anywhere in the word unfold', () => {
+  type V = number[]
+  const sub3 = (a: V, b: V) => [a[0]! - b[0]!, a[1]! - b[1]!, a[2]! - b[2]!]
+  const cr = (a: V, b: V) => [a[1]! * b[2]! - a[2]! * b[1]!, a[2]! * b[0]! - a[0]! * b[2]!, a[0]! * b[1]! - a[1]! * b[0]!]
+  const dt = (a: V, b: V) => a[0]! * b[0]! + a[1]! * b[1]! + a[2]! * b[2]!
+  // An edge of one face crossing the other's interior, clear of the shared edges and of the flat stack (half a unit)
+  const crosses = (p: V, q: V, a: V, b: V, c: V) => {
+    const n = cr(sub3(b, a), sub3(c, a)), L = Math.hypot(...n)
+    const dp = dt(n, sub3(p, a)) / L, dq = dt(n, sub3(q, a)) / L
+    if (dp * dq >= 0 || Math.abs(dp) < 0.5 || Math.abs(dq) < 0.5) return false
+    const s = dp / (dp - dq), x = [p[0]! + s * (q[0]! - p[0]!), p[1]! + s * (q[1]! - p[1]!), p[2]! + s * (q[2]! - p[2]!)]
+    const inside = (u: V, v: V) => dt(cr(sub3(v, u), sub3(x, u)), n) / Math.hypot(...sub3(v, u)) / L > 1.5
+    return inside(a, b) && inside(b, c) && inside(c, a)
+  }
+  const hits = (A: V[], B: V[]) => [[A, B], [B, A]].some(([P, Q]) => P!.some((p, i) => Q!.slice(1, -1).some((_, j) => crosses(p, P![(i + 1) % P!.length]!, Q![0]!, Q![j + 1]!, Q![j + 2]!))))
+  const fold = wordFold()
+  const adjacent = new Set(fold.creases.flatMap(c => [`${c.parent}|${c.child}`, `${c.child}|${c.parent}`]))
+  const faces = fold.faces.filter(f => !f.page)
+  for (let k = 1; k < 120; k++) {
+    const p = pose(fold, k / 120)
+    for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
+      const a = faces[i]!.id, b = faces[j]!.id
+      if (a.split('.')[0] !== b.split('.')[0] || adjacent.has(`${a}|${b}`)) continue
+      assert.ok(!hits(p.faces[a]!.pts, p.faces[b]!.pts), `${a} passes through ${b} at t = ${k / 120}`)
+    }
+  }
+  // The check bites: with the overlap at .45 the S's side-right is still over its top when the top lifts
+  const tight = wordFold('S', { overlap: 0.45 })
+  const pt = (t: number) => pose(tight, t)
+  assert.ok(Array.from({ length: 119 }, (_, k) => pt((k + 1) / 120)).some(p => hits(p.faces['0.top']!.pts, p.faces['0.side-right']!.pts)))
 })

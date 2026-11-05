@@ -26,7 +26,7 @@ One line per export; the file each lives in is the heading.
 ## fold.ts: the model
 
 - `Sheet`: `{ width, height, cut? }`; `cut` says the faces need not tile the box (a glyph's strip).
-- `Face`: `{ id, pts, slot?, page? }`; `slot` is the print tone class (`'lit' | 'lit2' | 'shade' | 'shade2'`); `page` marks a lift's root, the host's page outside the box.
+- `Face`: `{ id, pts, slot?, page?, seam? }`; `slot` is the print tone class (`'lit' | 'lit2' | 'shade' | 'shade2'`); `page` marks a lift's root, the host's page outside the box; `seam` names the crease a shade face's gradient falls from when not the one it hangs on (on an edge of the face; FOLD `faces_orkami:seam`). `seamOf(fold, faceId)` gives that crease (the seam, else the face's hinge, else null); `shadeSeams(fold)` the creases drawn `onShade`.
 - `Crease`: `{ id, a, b, assignment: 'M' | 'V' | 'F', parent, child, closed, closing? }`; `closed` is the angle magnitude the child sits at when fully folded (`Math.PI` for a flap lying flat over, `0` for F); the assignment gives the sign; `closing` marks a crease left out of the hinge tree (D3).
 - `Closure`: `{ vertex, closing, solved, across }`: an interior vertex's loop: the closing crease, the creases whose shared magnitude is solved so it closes, and the unit direction in the sheet the gap is measured along (the mirror plane's normal) (D10).
 - `Fold`: `{ name?, sheet, faces, creases, root, schedule?, closures?, suits?, extra? }`; `suits` from D7's table; `extra` holds FOLD keys the engine does not read.
@@ -43,7 +43,7 @@ One line per export; the file each lives in is the heading.
 
 ## stack.ts: the flat-state stacking (D12)
 
-- `stackOrder(fold)`: `{ layer, up, step }`: each face's integer layer in the closed state (root 0, positive toward the visitor; a pleat's panels 0, 1, 2, ...), which way each face's front faces when closed (`up`, +1 like the root, -1 face down), and each tree crease's step in its parent's frame (+1 over for a valley closing at pi, -1 under for a mountain, 0 for a crease that does not close flat). The same rule `toFOLD` writes as `faceOrders`, composed down the tree; the CSS driver separates coplanar faces by `layer` so they never fight for the same pixels.
+- `stackOrder(fold)`: `{ layer, up, step }`: each face's integer layer in the closed state (root 0, positive toward the visitor; a pleat's panels 0, 1, 2, ...), which way each face's front faces when closed (`up`, +1 like the root, -1 face down), and each tree crease's step in its parent's frame (+1 over for a valley closing at pi, -1 under for a mountain, 0 for a crease that does not close flat; past an earlier sibling's whole flap where the child, folded, overlaps it on the same side). The same rule `toFOLD` writes as `faceOrders`, composed down the tree; the CSS driver separates coplanar faces by `layer` so they never fight for the same pixels.
 
 ## schedule.ts: time
 
@@ -123,11 +123,11 @@ Each takes a rectangle and returns a validated `Fold` with `name`, `suits` and i
 
 ## glyphs/: letters as folds
 
-- `Glyph`: `{ char, width, fold, hinge }`: a letter's facets as the faces of a `Fold` on a cut sheet 270 tall, its hinges as creases (alternating V and M by depth, closed pi), and the root's own hinge (the letter's left edge, how it hangs in the word).
+- `Glyph`: `{ char, width, fold, hinge, order }`: a letter's facets as the faces of a `Fold` on a cut sheet 270 tall, rooted in its middle facet so it folds down onto itself (M on `fold-left`, S on `middle`, C on `spine`, H on `bar`), its hinges as creases (alternating V and M by depth, closed pi), an edge of the root (how it hangs in the word), and `order`, its creases as they open, the top of the folded packet first. Shade facets that are roots carry the seed's hinge as their `seam`, so the resting look is the seed's.
 - `GLYPHS`, `glyph(char)`: M, A, S, L, C, H. `HEIGHT` 270, `STRIP` 72, `GAP` 40, `MARK_GAP` 52, `KERN` (`LA: -18`).
 - `layout(text = 'MASLACH')`: `Word` `{ text, width, height, letters, faces }` placing the glyphs in a line as the seed did; each `PlacedFace` carries the face, its crease, the absolute polygon and hinge, and the slot.
 - `points(pts)`: an SVG `points` string.
-- `wordFold(text = 'MASLACH', { packet, letterStep, step, base }?)`: the word as one `Fold` (D13): the root a `page` face (the word's box), each letter's root facet hung on it by its glyph's own hinge on a valley closing at `packet` (`PACKET`, 0.08 pi; 0 lays the packets flat), each letter's facets its glyph's fold beneath, ids `wordId(letter, id)` (`'0.leg-left'`, the root hinge `'0.hinge'`). Schedule `timed`: letter i at `i * letterStep` ms (`LETTER_STEP` 70), its k-th facet's crease `k * step` later (`FACET_STEP` 60). The CSS driver does not mount it yet (a page root with more than one child); `toFOLD` of it does not round-trip (the page face's outline is not a crease pattern edge). `WordFoldOptions` the options.
+- `wordFold(text = 'MASLACH', { packet, letterStep, step, base }?)`: the word as one `Fold` (D13): the root a `page` face (the word's box), each letter's root facet hung on it by its glyph's own hinge on a valley closing at `packet` (`PACKET`, 0.08 pi; 0 lays the packets flat), each letter's facets its glyph's fold beneath, ids `wordId(letter, id)` (`'0.leg-left'`, the root hinge `'0.hinge'`). Schedule `timed`: letter i at `i * letterStep` ms (`LETTER_STEP` 70), its creases in the glyph's `order`, each starting `overlap` (`OVERLAP` 0.8) of the way into the run of the one before, so a flap is off the packet before the one under it lifts; `step` (ms, the seed's `FACET_STEP` 60) gives a fixed step instead. The CSS driver does not mount it yet (a page root with more than one child); `toFOLD` of it does not round-trip (the page face's outline is not a crease pattern edge). `WordFoldOptions` the options.
 
 ## glyphs/svg.ts: the flat word
 

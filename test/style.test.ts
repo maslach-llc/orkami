@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { backTone, brightness, creaseGradient, DEFAULT_STYLE, faceHeight, flat, occlusion, parseHex, shadowAt, style, tone } from '../src/core/style.ts'
-import { assertValid, crease as creaseOf, face as faceOf, type Fold } from '../src/core/fold.ts'
+import { assertValid, crease as creaseOf, face as faceOf, seamOf, type Fold } from '../src/core/fold.ts'
 import { pose, poseAngles, type Pose } from '../src/core/pose.ts'
 import { IDENTITY4, type Vec3 } from '../src/core/space.ts'
 import { glyph } from '../src/glyphs/index.ts'
@@ -56,7 +56,9 @@ test('the shadow drifts, softens and thins with height, and the contact layer is
 
 test('the crease gradient reproduces the seed stops at strength .46 and depth .6', () => {
   const g = glyph('M')
-  const face = faceOf(g.fold, 'fold-left'), crease = creaseOf(g.fold, 'fold-left')
+  // fold-left is the M's root now; its gradient falls from its seam, the seed's hinge on the left leg
+  const face = faceOf(g.fold, 'fold-left'), crease = seamOf(g.fold, 'fold-left')!
+  assert.equal(crease.id, 'leg-left')
   const s = style({ crease: { gradient: { strength: 0.46, depth: 0.6 } } })
   assert.equal(s.crease.gradient.occlusion, 0.12)
   assert.equal(s.grain.octaves, 3)

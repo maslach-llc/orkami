@@ -18,7 +18,7 @@
 // landing the flaps step aside so the element's content shows flat (doc 06 prints content on
 // every face). A face with a `slot` (a glyph) is painted paper: its print is the style's tone.
 import { compose, invert, toCss, type Affine, type Pt } from '../core/affine.ts'
-import { centroid, face as faceOf, sign, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
+import { centroid, face as faceOf, seamOf, sign, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
 import { flatBack, hingeAxis, pose } from '../core/pose.ts'
 import { together, transitionable, type Schedule } from '../core/schedule.ts'
 import { rotation, transform } from '../core/space.ts'
@@ -292,8 +292,9 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     } else if (face.slot) {
       const tone = slotTone(style, face.slot)
       layers.push(`linear-gradient(${tone.top}, ${tone.bottom})`)
-      if ((face.slot === 'shade' || face.slot === 'shade2') && crease) {
-        const g = creaseGradient(face, crease, style)
+      const seam = seamOf(fold, face.id)
+      if ((face.slot === 'shade' || face.slot === 'shade2') && seam) {
+        const g = creaseGradient(face, seam, style)
         layers.push(gradient(g.from, g.to, g.stops.map(s => ({ offset: s.offset, alpha: num(s.opacity) })), W, H))
       }
     } else {
