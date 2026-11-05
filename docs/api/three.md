@@ -20,7 +20,8 @@ One line per export; the file each lives in is the heading.
 - Axes: the core's page coordinates (y down) are a mirror of three's (y up); a page point `(x, y, z)` is `(x, -y, z)` in the scene and a rotation by a about `(ux, uy, 0)` is a rotation by -a about `(ux, -uy, 0)`. A face's mesh's world matrix carries its flat vertices to `pose()`'s vertices, y flipped (tested for every named fold and the wordmark).
 - Paint: the front's vertex colors are the print (the slot's `Tone` from the top of the sheet to the bottom), multiplied by the grain and, on a shade face, the crease gradient; the back's are the style's `back` tone. Lit by the stage's light, the drawn color is the core's `tone()` (the back's `backTone()`).
 - `grainTexture(grain, size?)`: the style's grain as a tiling `DataTexture` of fractal value noise (`1 - strength * noise`), built without a DOM; multiplied into every front.
-- `parseColor(c)`: `{ rgb, alpha }` from a hex, `rgb()` or `rgba()` color (the style's hairline colors).
+- `parseColor(c)`: `{ rgb, alpha }` from a hex, `rgb()`, `rgba()` or `color(srgb r g b)` color (the style's hairline colors; the last is how a browser computes a `color-mix()`).
+- `cssColor(c, el)`, `resolveStyle(style, el)`, `resolvePalette(palette, el)` (resolve.ts): any CSS color a tone may be (a `var()` of the host's tokens, a `color-mix()`) as the color it computes to at `el`, read by a hidden probe child; colors `parseColor` already reads pass through. A color that computes to something else (an `oklch()`) throws a named error. `<Unfold3D>` resolves its style and palette at its box on every play.
 - `resources(handle)`: the geometries and materials in a handle's tree, for a test or an inspector.
 
 ## stage.ts: renderer, camera, light, floor

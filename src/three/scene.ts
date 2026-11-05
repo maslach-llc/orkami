@@ -104,12 +104,18 @@ const CAST = 1
 /** A page point into the scene's axes. */
 const P = ([x, y]: Pt, z = 0) => new Vector3(x, -y, z)
 
-/** A color string (hex, `rgb()` / `rgba()` with numbers, or a `/ alpha`) to channels 0..1 and an alpha. */
+/** A color string (hex, `rgb()` / `rgba()` with numbers, or a `/ alpha`, or `color(srgb r g b)` as a browser computes a `color-mix()`) to channels 0..1 and an alpha. Any other CSS color goes through `resolveStyle` / `resolvePalette` first. */
 export function parseColor(c: string): { rgb: [number, number, number]; alpha: number } {
   const s = c.trim()
   if (s.startsWith('#')) {
     const [r, g, b] = parseHex(s)
     return { rgb: [r / 255, g / 255, b / 255], alpha: 1 }
+  }
+  const srgb = /^color\(\s*srgb\s+([^)]*)\)$/i.exec(s)
+  if (srgb) {
+    const parts = srgb[1]!.split(/[\s/]+/).filter(Boolean)
+    const ch = (v: string) => v.endsWith('%') ? parseFloat(v) / 100 : parseFloat(v)
+    return { rgb: [ch(parts[0]!), ch(parts[1]!), ch(parts[2]!)], alpha: parts[3] === undefined ? 1 : ch(parts[3]) }
   }
   const m = /^rgba?\(([^)]*)\)$/i.exec(s)
   if (!m) throw new Error(`not a color the WebGL driver reads: ${c}`)

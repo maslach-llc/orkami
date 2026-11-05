@@ -30,11 +30,11 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 ## Unfold3D.vue: the WebGL component
 
 - `<Unfold3D fold="MASLACH" />`: the fold unfolding as lit paper (`orkami/three`), then lying flat as its fallback. `fold` is a `Fold`, a `NamedFold` key (sized to the component's box) or a word for the glyphs (`wordFold`). Props: `palette` (the driver's `Palette` or `PaintFn`), `style`, `delay` (ms before an autoplay, 200), `duration` (ms, the schedule's length by default), `schedule`, `autoplay` (true), `label` (the accessible name; empty hides it). Emits `done` at the landing. Exposes `play()`, `show()` (flat, no motion), `playing`, `open`.
-- `<template #flat>`: the flat fallback, the `<Word>` of the word when `fold` is one. The canvas exists only while the unfold plays (D16): it lies over the fallback with the bleed `bleedFor` gives, the fallback hidden under it, and at the landing it fades out over the fallback in 300 ms and the WebGL context is freed. Reduced motion, no WebGL (the renderer throws) and no JavaScript (a `<noscript>` style) show the fallback. three.js is imported on the first play.
+- `<template #flat>`: the flat fallback, the `<Word>` of the word when `fold` is one. The canvas exists only while the unfold plays (D16): it lies over the fallback with the bleed `bleedFor` gives, the fallback hidden under it, and at the landing it fades out over the fallback in 300 ms and the WebGL context is freed. Reduced motion, no WebGL (the renderer throws) and no JavaScript (a `<noscript>` style) show the fallback. three.js is imported on the first play. The style's and palette's colors are resolved at the box when it plays (`resolveStyle`), so tones given as CSS tokens paint the lit paper as they compute then; the drawing buffer is the canvas's rendered size, so a box scaled by a transform (a lockup growing into a hero) draws sharp.
 
 ## Word.vue and Mark.vue: the flat glyphs
 
-- `<Word text="MASLACH" />`: `wordSvg` as an inline `<svg>`, server rendered. Props `text`, `height` (px; the width follows, else it fills its container's width), `label`, `shadow` (true), `grain` (the style's), `style`.
+- `<Word text="MASLACH" />`: `wordSvg` as an inline `<svg>`, server rendered. Props `text`, `height` (px; the width follows, else it fills its container's width), `label`, `shadow` (the style's `shadows.on`), `grain` (the style's), `style`. Tones may be any CSS color: a hex is the gradient stop's attribute, anything else its `style`, so a `var()` follows the page's tokens (a theme, a palette) with no new markup.
 - `<Mark />`: a one-letter `Word` (`text` `'M'`), `height` 28, no shadow, for a header.
 
 ## index.ts

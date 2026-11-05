@@ -32,6 +32,8 @@ export interface WordSvg {
 }
 
 const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+/** A stop's color: a hex as the attribute; any other CSS color (a `var()`, a `color-mix()`) in the style, where the cascade resolves it, so a host's tokens (a theme, a palette) recolor the word with no new markup. */
+const stopColor = (c: string) => /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(c.trim()) ? `stop-color="${attr(c)}"` : `style="stop-color:${attr(c)}"`
 const n = (v: number) => String(Math.round(v * 100) / 100)
 const shaded = (f: PlacedFace) => f.slot === 'shade' || f.slot === 'shade2'
 
@@ -47,7 +49,7 @@ export function wordSvg(text = 'MASLACH', options: SvgOptions = {}): WordSvg {
   // The prints: one gradient per slot, over the letters' height in user space
   for (const slot of ['lit', 'lit2', 'shade', 'shade2'] as const) {
     const t = slotTone(style, slot)
-    defs.push(`<linearGradient id="${id(slot)}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${n(w.height)}"><stop offset="0" stop-color="${attr(t.top)}"/><stop offset="1" stop-color="${attr(t.bottom)}"/></linearGradient>`)
+    defs.push(`<linearGradient id="${id(slot)}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${n(w.height)}"><stop offset="0" ${stopColor(t.top)}/><stop offset="1" ${stopColor(t.bottom)}/></linearGradient>`)
   }
   const key = (f: PlacedFace) => `${f.letter}-${f.index}`
   for (const f of w.faces) {

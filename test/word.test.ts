@@ -86,7 +86,7 @@ test('wordSvg draws the resting lockup from the style, with no DOM', () => {
   assert.ok(wordSvg('M', { label: 'mark' }).markup.includes('role="img" aria-label="mark"'))
   const bare = wordSvg('M', { shadow: false, grain: false })
   assert.ok(!bare.inner.includes('feDropShadow') && !bare.inner.includes('feTurbulence'))
-  assert.ok(wordSvg('M', { style: { tones: { lit: [{ top: 'var(--a)', bottom: 'var(--a)' }, { top: '#000', bottom: '#000' }] } } }).inner.includes('stop-color="var(--a)"'))
+  assert.ok(wordSvg('M', { style: { tones: { lit: [{ top: 'var(--a)', bottom: 'var(--a)' }, { top: '#000', bottom: '#000' }] } } }).inner.includes('style="stop-color:var(--a)"'))
 })
 
 test('no two faces of a letter pass through each other anywhere in the word unfold', () => {

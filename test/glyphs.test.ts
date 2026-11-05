@@ -106,3 +106,10 @@ test('wordSvg follows the style\'s shadows.on unless shadow is given', () => {
   assert.doesNotMatch(wordSvg('MA', { style: { shadows: { on: false } } }).markup, /feDropShadow/)
   assert.match(wordSvg('MA', { style: { shadows: { on: false } }, shadow: true }).markup, /feDropShadow/)
 })
+
+test('wordSvg takes any CSS color for a tone: hex as the stop attribute, a var() or color-mix() in its style', () => {
+  const svg = wordSvg('M', { style: { tones: { lit: [{ top: 'var(--ori-1)', bottom: 'color-mix(in srgb, var(--ori-1), #000 10%)' }, { top: '#445bd6', bottom: '#2a42bc' }] } } }).markup
+  assert.match(svg, /<stop offset="0" style="stop-color:var\(--ori-1\)"\/>/)
+  assert.match(svg, /<stop offset="1" style="stop-color:color-mix\(in srgb, var\(--ori-1\), #000 10%\)"\/>/)
+  assert.match(svg, /<stop offset="0" stop-color="#445bd6"\/>/)
+})

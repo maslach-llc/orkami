@@ -498,6 +498,10 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     el.classList.toggle('is-open', open)
     el.classList.toggle('is-landed', landed)
     cover(!landed)
+    // A lift with no background of its own is the page's paper coming up: painted with the sheet
+    // while it moves, and once it lies flat nothing at all, so the page's own sheet shows through
+    // it and a paint measured before the page moved (fonts, images) can never show as a patch
+    if (lifted && bare) el.classList.toggle('ori-paper', !landed)
   }
   const land = () => {
     t = 1
