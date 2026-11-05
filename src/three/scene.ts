@@ -67,7 +67,7 @@ export interface BuildOptions {
   layer?: number
   /** The crease hairlines (02, cue 6). On by default. */
   creases?: boolean
-  /** Whether the faces cast and receive shadows. On by default. */
+  /** Whether the faces cast and receive shadows; the style's `shadows.on` by default. */
   shadows?: boolean
   /** The time to build at: 0 closed (the default), 1 flat. */
   at?: number
@@ -212,7 +212,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   const creases = new Map(treeCreases(fold).map(c => [c.id, c]))
   const H = fold.sheet.height
   const layer = options.layer ?? 0.5
-  const shadows = options.shadows ?? true
+  const shadows = options.shadows ?? style.shadows.on
   const palette = typeof options.palette === 'function' ? undefined : options.palette
   const paint = typeof options.palette === 'function' ? options.palette : undefined
 

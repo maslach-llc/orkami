@@ -141,7 +141,9 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   renderer.setClearColor(0x000000, 0)
   renderer.outputColorSpace = LinearSRGBColorSpace
   renderer.toneMapping = NoToneMapping
-  renderer.shadowMap.enabled = true
+  // Off (the style's `shadows.on`), there is no shadow map and no floor to catch one
+  const shadowsOn = style.shadows.on
+  renderer.shadowMap.enabled = shadowsOn
   const pcf = options.shadowFilter === 'pcf'
   const filter: ShadowMapType = pcf ? PCFShadowMap : BasicShadowMap
   renderer.shadowMap.type = filter
@@ -155,7 +157,7 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   const [lx, ly, lz] = style.light.direction
   const light = new DirectionalLight(0xffffff, style.light.diffuse * Math.PI)
   light.position.set(lx, -ly, lz).normalize().multiplyScalar(dist)
-  light.castShadow = true
+  light.castShadow = shadowsOn
   const size = options.shadowMap ?? 1024
   light.shadow.mapSize.set(size, size)
   const ext = Math.hypot(vw, vh) / 2
@@ -176,7 +178,8 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   // The page under the sheet catches the shadows, a hair below it so a resting face never fights it
   const floor = new Mesh(new PlaneGeometry(vw, vh), new ShadowMaterial({ opacity: Math.min(1, restingShadow(style) / SHADOW_INTENSITY), transparent: true, depthWrite: false }))
   floor.position.z = -0.5
-  floor.receiveShadow = true
+  floor.receiveShadow = shadowsOn
+  floor.visible = shadowsOn
   scene.add(floor)
   // The contact-hardening shadow, read by the floor and by each handle's root face (the receivers)
   const contact = contactUniforms(style)

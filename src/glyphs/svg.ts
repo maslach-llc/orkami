@@ -11,7 +11,7 @@ import { layout, points, type PlacedFace } from './layout.ts'
 export interface SvgOptions {
   /** The look; overrides over the default style, or a full `Style`. A tone may be any CSS color (a `var()` too). */
   style?: Style | StyleOverrides
-  /** The resting shadow pair under the paper. On by default; off in tight spaces such as a header. */
+  /** The resting shadow pair under the paper; the style's `shadows.on` by default. Off in tight spaces such as a header. */
   shadow?: boolean
   /** The grain; the style's `grain.on` by default. */
   grain?: boolean
@@ -41,7 +41,7 @@ export function wordSvg(text = 'MASLACH', options: SvgOptions = {}): WordSvg {
   const w = layout(text)
   const pre = (options.id ?? 'ori').replace(/[^a-zA-Z0-9_-]/g, '')
   const id = (s: string) => `${pre}-${s}`
-  const shadow = options.shadow ?? true
+  const shadow = options.shadow ?? style.shadows.on
   const grain = options.grain ?? style.grain.on
   const defs: string[] = []
   // The prints: one gradient per slot, over the letters' height in user space

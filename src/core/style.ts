@@ -52,6 +52,8 @@ export interface Style {
     octaves: number
   }
   shadows: {
+    /** Whether the paper casts and rests on shadows at all; off, every driver draws none (the cast shadows of moving flaps, the resting pair, the WebGL shadow map). */
+    on: boolean
     /** The contact layer, gone by `fade` px of lift. */
     contact: { offset: [number, number]; blur: number; opacity: number; fade: number }
     /** The ambient layer, drifting and softening with lift: offset in px per px, blur in px per px, opacity as the fraction lost at 300 px. */
@@ -92,6 +94,7 @@ export const DEFAULT_STYLE: Style = {
   },
   grain: { on: true, strength: 0.14, frequency: 1.0, octaves: 3 },
   shadows: {
+    on: true,
     contact: { offset: [0, 2], blur: 4, opacity: 0.14, fade: 24 },
     ambient: {
       offset: [0, 16],

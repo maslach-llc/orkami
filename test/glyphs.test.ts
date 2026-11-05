@@ -4,7 +4,7 @@ import { validate } from '../src/core/fold.ts'
 import { pose } from '../src/core/pose.ts'
 import { isIdentity, length, sub } from '../src/core/space.ts'
 import { stackOrder } from '../src/core/stack.ts'
-import { GLYPHS, HEIGHT, STRIP, glyph, layout, points } from '../src/glyphs/index.ts'
+import { GLYPHS, HEIGHT, STRIP, glyph, layout, points, wordSvg } from '../src/glyphs/index.ts'
 
 test('every glyph is a sound fold', () => {
   for (const g of Object.values(GLYPHS)) assert.deepEqual(validate(g.fold), [], g.char)
@@ -99,4 +99,10 @@ test('faces keep their shape half way through the unfold', () => {
 
 test('points rounds to a tenth', () => {
   assert.equal(points([[1.26, 2], [3, 4.04]]), '1.3,2 3,4')
+})
+
+test('wordSvg follows the style\'s shadows.on unless shadow is given', () => {
+  assert.match(wordSvg('MA').markup, /feDropShadow/)
+  assert.doesNotMatch(wordSvg('MA', { style: { shadows: { on: false } } }).markup, /feDropShadow/)
+  assert.match(wordSvg('MA', { style: { shadows: { on: false } }, shadow: true }).markup, /feDropShadow/)
 })

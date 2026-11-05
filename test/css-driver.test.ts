@@ -288,6 +288,40 @@ test('open() in the css drive sets the targets and leaves the motion to the tran
   assert.equal(h.state, 'open')
 })
 
+test('in the css drive the clock starts with the transitions, so the shadows do not run ahead of the paper', async () => {
+  const { el, win } = block(300, 300)
+  const h = mount(el, blintz(300, 300))
+  void h.open()
+  // The browser's style pass (and so the transitions) comes 200 ms after open()
+  const start = performance.now() + 200
+  for (const flap of flapsOf(el)) (flap as unknown as { getAnimations: () => unknown[] }).getAnimations = () => [{ transitionProperty: '--ori-a', startTime: start }]
+  await new Promise(r => setTimeout(r, 60))
+  win.tick()
+  assert.equal(h.t, 0, 'the clock waits for the transitions')
+  // Without the transitions' start (no Web Animations), the clock keeps the call's time
+  const other = block(300, 300)
+  const g = mount(other.el, blintz(300, 300))
+  void g.open()
+  await new Promise(r => setTimeout(r, 60))
+  other.win.tick()
+  assert.ok(g.t > 0)
+  h.destroy()
+  g.destroy()
+})
+
+test('shadows off (style.shadows.on false): no shadow layers, and the motion still plays', () => {
+  const { el } = block(300, 300)
+  const h = mount(el, blintz(300, 300), { style: { shadows: { on: false } } })
+  assert.equal(el.querySelectorAll('.ori-shadow').length, 0)
+  h.set(0.5)
+  assert.ok(deg(byFace(el, 'tl').style.getPropertyValue('--ori-a')) > 0)
+  h.set(1)
+  assert.equal(h.state, 'open')
+  const on = block(300, 300)
+  mount(on.el, blintz(300, 300))
+  assert.ok(on.el.querySelectorAll('.ori-shadow').length > 0)
+})
+
 test('reduced motion mounts flat, and a fold with a closure takes the frame drive', () => {
   const r = block(200, 200)
   r.win.reducedMotion = true

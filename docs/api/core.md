@@ -82,7 +82,7 @@ One line per export; the file each lives in is the heading.
 ## style.ts: the look (D9, `docs/design/02-look.md`)
 
 - `Tone`: `{ top, bottom }` colors; `flat(c)` the same color twice.
-- `Style`: `tones`, `crease`, `grain`, `shadows`, `edges: 'sharp'`, `light`, `thin`, field for field as 02-look.md. `DEFAULT_STYLE`: the "Paper light" neutral paper with the logo's effects. `style(overrides)`: a deep merge over the default (a host passes its four slot tones).
+- `Style`: `tones`, `crease`, `grain`, `shadows`, `edges: 'sharp'`, `light`, `thin`, field for field as 02-look.md. `DEFAULT_STYLE`: the "Paper light" neutral paper with the logo's effects. `style(overrides)`: a deep merge over the default (a host passes its four slot tones). `shadows.on: false` turns every shadow off in both drivers and in `wordSvg` (a low-power page, a busy background); `grain.on` does the same for the grain.
 - `StyleOverrides`: a deep partial of `Style`, what `style()` takes.
 - `slotTone(style, slot?)`: the slot's Tone (`lit` for a face without one).
 - `brightness(face, pose, style?)`: the Lambert factor k of the face in the pose.

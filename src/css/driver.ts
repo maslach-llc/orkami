@@ -334,6 +334,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   }
   const closedDeg = (c: Crease) => sign(c.assignment) * c.closed * DEG
   const shadowsFor = (into: HTMLElement, c: Crease, axis: { point: Pt; dir: Pt }): Flap['shadows'] => {
+    if (!style.shadows.on) return []
     const layers = reach(fold, c.id, tree) < 40 ? ['contact'] : ['contact', 'ambient']
     return layers.map((name) => {
       const wrap = doc.createElement('div')
@@ -473,6 +474,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     for (const f of flaps) {
       const angle = p.angles[f.crease.id] ?? 0
       if (angles) f.el.style.setProperty('--ori-a', `${num(angle * DEG)}deg`)
+      if (f.shadows.length === 0) continue
       const r = rotation([f.axis.point[0], f.axis.point[1], 0], [f.axis.dir[0], f.axis.dir[1], 0], angle)
       const pts3 = f.face.pts.map(([x, y]) => transform(r, [x, y, 0]))
       const cast = castShadow(pts3, f.axis, lightIn(p.faces[f.crease.parent]?.matrix, style.light.direction), style)
@@ -520,8 +522,22 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     pending = deferred()
     const from = t
     const dir = toT === 1 ? 1 : -1
-    const t0 = now()
+    let t0 = now()
+    // On CSS transitions the angles start at the browser's next style pass, which on a fresh mount
+    // can be a long frame after this call: the clock (and the shadows it paints) takes its start
+    // from the transitions' own, so the shadows do not run ahead of the paper. Only for a whole
+    // run: a reversal mid-way keeps the call's time.
+    let synced = drive !== 'css' || (from !== 0 && from !== 1)
+    const sync = () => {
+      for (const f of flaps) {
+        const a = f.el.getAnimations?.().find(x => (x as CSSTransition).transitionProperty === '--ori-a')
+        if (!a) continue
+        if (typeof a.startTime === 'number') { t0 = a.startTime; synced = true }
+        return
+      }
+    }
     const tick = () => {
+      if (!synced) sync()
       const elapsed = Math.max(0, now() - t0 - delay)
       t = Math.min(1, Math.max(0, from + dir * elapsed / total))
       paint(t, drive === 'frame')

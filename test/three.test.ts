@@ -302,3 +302,19 @@ test('play runs t to 1 (and back) on the clock and calls onDone', async () => {
 test('waterbomb: the closure solved by the core is what the groups show', () => {
   matchesPose(waterbomb(300), 0.5)
 })
+
+test('shadows off (style.shadows.on false): no shadow map, no floor, no face casts or receives', () => {
+  const off = { shadows: { on: false } }
+  const fake = { setPixelRatio() {}, setClearColor() {}, shadowMap: {}, render() {}, setSize() {}, dispose() {} } as unknown as WebGLRenderer
+  const st = stage({} as HTMLCanvasElement, { width: 200, height: 200, renderer: fake, style: off })
+  assert.equal(st.renderer.shadowMap.enabled, false)
+  assert.equal(st.light.castShadow, false)
+  assert.equal(st.floor.visible, false)
+  const h = buildFold(book(200, 200), { style: off })
+  st.add(h)
+  for (const t of [0, 0.5, 1]) {
+    h.set(t)
+    h.root.traverse(o => { const m = o as Mesh; if (m.isMesh) assert.ok(!m.castShadow && !m.receiveShadow) })
+  }
+  st.dispose()
+})

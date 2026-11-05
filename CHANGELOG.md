@@ -15,6 +15,9 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   as `stackOrder` says.
 - The CSS driver no longer draws a hole where a face stays in the sheet beside the root (the
   waterbomb's T2, the preliminary's Tl): such a face gets no ground to fight its flap for depth.
+- The CSS driver's cast shadows no longer run ahead of the paper on the transition drive: the
+  clock that paints them now starts with the flaps' transitions (the browser's next style pass,
+  which on a fresh mount can come 100 ms or more after `open()`), not with the call.
 
 ### Changed
 
@@ -47,6 +50,10 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   colour come from when it is not the one the face hangs on (FOLD `faces_orkami:seam`).
 - `stackOrder` stacks overlapping siblings folded onto the same side, the later over the whole of
   the earlier (D12).
+- `Style.shadows.on` (default true) turns shadows off in every driver: the CSS driver makes no
+  shadow layers and paints none per frame, the WebGL stage has no shadow map and no floor, and
+  `wordSvg` (and `<Word>`) drops the resting pair unless `shadow` is given. The playground's Word
+  page has a shadows toggle.
 
 ## [0.1.0] - 2026-11-02
 
