@@ -5,6 +5,27 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-05
+
+### Fixed
+
+- A lifted block with no background of its own no longer keeps the sheet paint once it has
+  landed: the paint was measured where the block lay when it mounted, so a page that moved after
+  (fonts, images) showed it as a patch of misplaced sheet. It now drops `.ori-paper` at the
+  landing and the page's own sheet shows through.
+- `<Unfold3D>` draws at the canvas's rendered size, so a box scaled up by a transform no longer
+  shows a blurred, blocky canvas.
+- `wordSvg` writes a tone that is not a hex in the stop's `style` instead of its `stop-color`
+  attribute, where browsers ignore a `var()`.
+
+### Added
+
+- Tones may be any CSS color in every driver: `resolveStyle`, `resolvePalette` and `cssColor`
+  in `orkami/three` turn them into the colors they compute to at an element, `parseColor` reads
+  `color(srgb ...)`, and `<Unfold3D>` resolves its style and palette at its box on each play. A
+  host can give its tones as its own tokens (`var(--brand)`, `color-mix()`) and have a theme or
+  a palette recolor the word in every driver.
+
 ## [0.1.1] - 2026-11-05
 
 ### Fixed
@@ -82,6 +103,7 @@ The first release: the engine, two drivers, the Vue adapter and the playground.
 - The study (`docs/study/`), the vocabulary and decisions D1 to D16 (`docs/design/`), and the API
   reference (`docs/api/`).
 
-[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/maslach-llc/orkami/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/maslach-llc/orkami/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/maslach-llc/orkami/releases/tag/v0.1.0
