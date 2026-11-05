@@ -39,7 +39,7 @@ import {
   type Texture,
 } from 'three'
 import type { Pt } from '../core/affine.ts'
-import { centroid, face as faceOf, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
+import { centroid, face as faceOf, seamOf, shadeSeams, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
 import { hingeAxis, pose, type Pose } from '../core/pose.ts'
 import { together, type Schedule } from '../core/schedule.ts'
 import { stackOrder } from '../core/stack.ts'
@@ -67,7 +67,7 @@ export interface BuildOptions {
   layer?: number
   /** The crease hairlines (02, cue 6). On by default. */
   creases?: boolean
-  /** Whether the faces cast and receive shadows. On by default. */
+  /** Whether the faces cast and receive shadows; the style's `shadows.on` by default. */
   shadows?: boolean
   /** The time to build at: 0 closed (the default), 1 flat. */
   at?: number
@@ -212,7 +212,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   const creases = new Map(treeCreases(fold).map(c => [c.id, c]))
   const H = fold.sheet.height
   const layer = options.layer ?? 0.5
-  const shadows = options.shadows ?? true
+  const shadows = options.shadows ?? style.shadows.on
   const palette = typeof options.palette === 'function' ? undefined : options.palette
   const paint = typeof options.palette === 'function' ? options.palette : undefined
 
@@ -254,13 +254,14 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
       oriGradFrom: { value: new Vector2() }, oriGradTo: { value: new Vector2(1, 0) }, oriGrad: { value: [0, 0, 0, 0.5] },
       oriOccFrom: { value: new Vector2() }, oriOccTo: { value: new Vector2(1, 0) }, oriOcc: { value: 0 },
     }
-    if (!crease) return u
-    if (side === 'front' && (face.slot === 'shade' || face.slot === 'shade2')) {
-      const g = creaseGradient(face, crease, style)
+    const seam = seamOf(fold, face.id)
+    if (seam && side === 'front' && (face.slot === 'shade' || face.slot === 'shade2')) {
+      const g = creaseGradient(face, seam, style)
       u.oriGradFrom.value = local(g.from)
       u.oriGradTo.value = local(g.to)
       u.oriGrad.value = [g.stops[0]!.opacity, g.stops[1]!.opacity, g.stops[2]!.opacity, g.stops[1]!.offset]
     }
+    if (!crease) return u
     // The occlusion darkens the side the fold closes on, as the CSS driver: the front of a valley, the back of a mountain
     const mid: Pt = [(crease.a[0] + crease.b[0]) / 2, (crease.a[1] + crease.b[1]) / 2]
     const c = centroid(face.pts)
@@ -346,6 +347,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
     return m
   }
   if (options.creases ?? true) {
+    const onShade = shadeSeams(fold)
     for (const c of creases.values()) {
       if (faceOf(fold, c.parent).page) continue
       const origin = origins.get(c.parent)!
@@ -354,8 +356,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
       a.z = b.z = lift
       const g = new BufferGeometry().setFromPoints([a, b])
       geometries.add(g)
-      const slot = faceOf(fold, c.child).slot
-      const line = new LineSegments(g, lineMaterial(slot === 'shade' || slot === 'shade2' ? style.crease.onShade : style.crease.onLit))
+      const line = new LineSegments(g, lineMaterial(onShade.has(c.id) ? style.crease.onShade : style.crease.onLit))
       line.name = `${c.id}:crease`
       line.renderOrder = 1
       groups.get(c.parent)!.add(line)

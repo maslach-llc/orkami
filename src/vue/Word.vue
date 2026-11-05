@@ -14,7 +14,7 @@ const props = withDefaults(defineProps<{
   shadow?: boolean
   grain?: boolean
   style?: Style | StyleOverrides
-}>(), { text: 'MASLACH', height: undefined, label: '', shadow: true, grain: undefined, style: undefined })
+}>(), { text: 'MASLACH', height: undefined, label: '', shadow: undefined, grain: undefined, style: undefined })
 
 const uid = useId()
 const svg = computed(() => wordSvg(props.text, { style: props.style, shadow: props.shadow, grain: props.grain, id: `ori${uid}` }))

@@ -2,13 +2,13 @@
 // The wordmark in the CSS driver: wordFold mounted on a box holding the flat Word, which shows
 // once the letters land (every letter facet is a flap on the page, D13). Scaled to `width`.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { wordFold, type StyleOverrides } from 'orkami'
+import { LETTER_STEP, wordFold, type StyleOverrides } from 'orkami'
 import { mount, type Handle } from 'orkami/css'
 import { Word } from 'orkami/vue'
 
 const props = defineProps<{ text?: string; width: number; style?: StyleOverrides; at?: number; slow?: number }>()
 const emit = defineEmits<{ done: [] }>()
-const fold = computed(() => wordFold(props.text ?? 'MASLACH', props.slow && props.slow !== 1 ? { letterStep: 70 * props.slow, step: 60 * props.slow, base: 640 * props.slow } : {}))
+const fold = computed(() => wordFold(props.text ?? 'MASLACH', props.slow && props.slow !== 1 ? { letterStep: LETTER_STEP * props.slow, base: 640 * props.slow } : {}))
 const scale = computed(() => props.width / fold.value.sheet.width)
 const host = ref<HTMLElement | null>(null)
 let handle: Handle | undefined

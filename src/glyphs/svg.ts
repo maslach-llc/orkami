@@ -11,7 +11,7 @@ import { layout, points, type PlacedFace } from './layout.ts'
 export interface SvgOptions {
   /** The look; overrides over the default style, or a full `Style`. A tone may be any CSS color (a `var()` too). */
   style?: Style | StyleOverrides
-  /** The resting shadow pair under the paper. On by default; off in tight spaces such as a header. */
+  /** The resting shadow pair under the paper; the style's `shadows.on` by default. Off in tight spaces such as a header. */
   shadow?: boolean
   /** The grain; the style's `grain.on` by default. */
   grain?: boolean
@@ -41,7 +41,7 @@ export function wordSvg(text = 'MASLACH', options: SvgOptions = {}): WordSvg {
   const w = layout(text)
   const pre = (options.id ?? 'ori').replace(/[^a-zA-Z0-9_-]/g, '')
   const id = (s: string) => `${pre}-${s}`
-  const shadow = options.shadow ?? true
+  const shadow = options.shadow ?? style.shadows.on
   const grain = options.grain ?? style.grain.on
   const defs: string[] = []
   // The prints: one gradient per slot, over the letters' height in user space
@@ -51,8 +51,8 @@ export function wordSvg(text = 'MASLACH', options: SvgOptions = {}): WordSvg {
   }
   const key = (f: PlacedFace) => `${f.letter}-${f.index}`
   for (const f of w.faces) {
-    if (!shaded(f) || !f.crease) continue
-    const g = creaseGradient({ ...f.face, pts: f.abs }, { ...f.crease, a: f.hingeAbs[0], b: f.hingeAbs[1] }, style)
+    if (!shaded(f) || !f.seam) continue
+    const g = creaseGradient({ ...f.face, pts: f.abs }, { ...f.seam.crease, a: f.seam.a, b: f.seam.b }, style)
     defs.push(`<linearGradient id="${id(`crease-${key(f)}`)}" gradientUnits="userSpaceOnUse" x1="${n(g.from[0])}" y1="${n(g.from[1])}" x2="${n(g.to[0])}" y2="${n(g.to[1])}">${g.stops.map(s => `<stop offset="${n(s.offset)}" stop-color="#000" stop-opacity="${n(s.opacity)}"/>`).join('')}</linearGradient>`)
   }
   if (shadow) {
@@ -64,10 +64,12 @@ export function wordSvg(text = 'MASLACH', options: SvgOptions = {}): WordSvg {
     defs.push(`<filter id="${id('grain')}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${n(style.grain.frequency)}" numOctaves="${Math.round(style.grain.octaves)}" stitchTiles="stitch" result="n"/><feColorMatrix type="saturate" values="0" in="n" result="g"/><feComponentTransfer in="g" result="a"><feFuncA type="table" tableValues="0 ${n(style.grain.strength)}"/></feComponentTransfer><feComposite in="a" in2="SourceAlpha" operator="in"/></filter>`)
     defs.push(`<clipPath id="${id('clip')}"><path d="${w.faces.map(f => `M${f.abs.map(p => `${n(p[0])} ${n(p[1])}`).join('L')}Z`).join('')}"/></clipPath>`)
   }
+  // A crease is drawn as on shade where it is a shade face's seam (the seed's: the crease that face hung on)
+  const onShade = (f: PlacedFace) => w.faces.some(g => g.letter === f.letter && shaded(g) && g.seam?.crease.id === f.crease?.id)
   const body: string[] = []
   body.push(`<g${shadow ? ` filter="url(#${id('shadow')})"` : ''}>${w.faces.map(f => `<polygon data-face="${attr(f.face.id)}" points="${points(f.abs)}" fill="url(#${id(f.slot)})"/>`).join('')}</g>`)
-  body.push(`<g class="ori-crease-shade">${w.faces.filter(f => shaded(f) && f.crease).map(f => `<polygon points="${points(f.abs)}" fill="url(#${id(`crease-${key(f)}`)})"/>`).join('')}</g>`)
-  body.push(`<g class="ori-creases" fill="none" stroke-width="${n(style.crease.width)}">${w.faces.filter(f => f.crease).map(f => `<line x1="${n(f.hingeAbs[0][0])}" y1="${n(f.hingeAbs[0][1])}" x2="${n(f.hingeAbs[1][0])}" y2="${n(f.hingeAbs[1][1])}" stroke="${attr(shaded(f) ? style.crease.onShade : style.crease.onLit)}" vector-effect="non-scaling-stroke"/>`).join('')}</g>`)
+  body.push(`<g class="ori-crease-shade">${w.faces.filter(f => shaded(f) && f.seam).map(f => `<polygon points="${points(f.abs)}" fill="url(#${id(`crease-${key(f)}`)})"/>`).join('')}</g>`)
+  body.push(`<g class="ori-creases" fill="none" stroke-width="${n(style.crease.width)}">${w.faces.filter(f => f.crease).map(f => `<line x1="${n(f.hingeAbs[0][0])}" y1="${n(f.hingeAbs[0][1])}" x2="${n(f.hingeAbs[1][0])}" y2="${n(f.hingeAbs[1][1])}" stroke="${attr(onShade(f) ? style.crease.onShade : style.crease.onLit)}" vector-effect="non-scaling-stroke"/>`).join('')}</g>`)
   if (grain) body.push(`<rect width="100%" height="100%" clip-path="url(#${id('clip')})" filter="url(#${id('grain')})" style="mix-blend-mode:multiply"/>`)
   const inner = `<defs>${defs.join('')}</defs>${body.join('')}`
   const viewBox = `0 0 ${n(w.width)} ${n(w.height)}`

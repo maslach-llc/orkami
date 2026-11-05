@@ -33,6 +33,8 @@ export interface Face {
   slot?: Slot
   /** The face is the page the block is folded out of (a lift's root): the host's sheet, not drawn, outside the box. */
   page?: boolean
+  /** The crease a shade face's crease gradient falls from, when not the one it hangs on (a glyph's middle facet is the root and hangs on none, yet reads as creased from a neighbour). Must lie on an edge of the face. */
+  seam?: CreaseId
 }
 
 export interface Crease {
@@ -218,6 +220,13 @@ export function validate(fold: Fold): string[] {
     if (c.closed < 0 || c.closed > Math.PI + 1e-9) problems.push(`crease ${c.id} closes outside [0, pi]`)
   }
 
+  for (const f of fold.faces) {
+    if (f.seam === undefined) continue
+    const c = creases.get(f.seam)
+    if (!c) problems.push(`face ${f.id}: seam ${f.seam} does not exist`)
+    else if (!onEdge(f.pts, c.a, c.b, tol)) problems.push(`face ${f.id}: seam ${f.seam} is not on its edge`)
+  }
+
   // The tree creases: one hinge per face but the root, every face reached from the root, no cycle
   const hinge = new Map<FaceId, Crease>()
   for (const c of treeCreases(fold)) {
@@ -280,4 +289,22 @@ export function assertValid(fold: Fold): Fold {
   const problems = validate(fold)
   if (problems.length) throw new Error(`invalid fold${fold.name ? ` ${fold.name}` : ''}: ${problems.join('; ')}`)
   return fold
+}
+
+/** The crease a face's shade gradient falls from: its `seam`, else the tree crease it hangs on, else none (a root). */
+export function seamOf(fold: Fold, faceId: FaceId): Crease | null {
+  const f = face(fold, faceId)
+  if (f.seam) return crease(fold, f.seam)
+  return treeCreases(fold).find(c => c.child === faceId) ?? null
+}
+
+/** The creases drawn as on shade (`crease.onShade`): each the seam of a shade face. */
+export function shadeSeams(fold: Fold): Set<CreaseId> {
+  const out = new Set<CreaseId>()
+  for (const f of fold.faces) {
+    if (f.slot !== 'shade' && f.slot !== 'shade2') continue
+    const c = seamOf(fold, f.id)
+    if (c) out.add(c.id)
+  }
+  return out
 }
