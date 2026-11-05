@@ -90,18 +90,27 @@ async function play() {
     three ??= await import('../three/index.ts')
   } catch { show(); return }
   const fold = resolveFold()
+  // The tones as the page computes them here: a host's tokens (var(), color-mix()) become numbers
+  let style: Style, palette: Palette | PaintFn | undefined
+  try {
+    style = three.resolveStyle(props.style, el)
+    palette = props.palette && typeof props.palette !== 'function' ? three.resolvePalette(props.palette, el) : props.palette
+  } catch (e) { console.error(e); show(); return }
   const W = fold.sheet.width, H = fold.sheet.height
   const scale = el.clientWidth / W || 1
-  const [bx, by] = three.bleedFor(fold, { style: props.style, schedule: props.schedule })
+  const [bx, by] = three.bleedFor(fold, { style, schedule: props.schedule })
   frame.value = { left: -bx * scale, top: -by * scale, width: (W + 2 * bx) * scale, height: (H + 2 * by) * scale }
   playing.value = true
   await nextTick()
   if (!canvas.value || !playing.value) return
   try {
-    const stage = three.stage(canvas.value, { width: W, height: H, bleed: [bx, by], style: props.style })
-    const handle = three.buildFold(fold, { style: props.style, palette: props.palette, schedule: props.schedule })
+    const stage = three.stage(canvas.value, { width: W, height: H, bleed: [bx, by], style })
+    const handle = three.buildFold(fold, { style, palette, schedule: props.schedule })
     stage.add(handle)
-    stage.resize(frame.value.width, frame.value.height)
+    // The drawing buffer at the canvas's rendered size: a box scaled by a transform (a lockup
+    // growing into a hero) draws at the size it shows, not its layout size
+    const shown = canvas.value.getBoundingClientRect()
+    stage.resize(shown.width || frame.value.width, shown.height || frame.value.height)
     scene.value = { stage, handle }
   } catch { show(); return }
   const { stage, handle } = scene.value

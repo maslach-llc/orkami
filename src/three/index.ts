@@ -5,3 +5,4 @@
 export { buildFold, grainTexture, parseColor, resources, type BuildOptions, type FoldHandle, type PaintFn, type Palette } from './scene.ts'
 export { bleedFor, distanceFor, restingShadow, shadowSoftness, SHADOW_INTENSITY, stage, type Stage, type StageOptions } from './stage.ts'
 export { contactChunk, contactMaterial, contactUniforms, type ContactUniforms } from './contact.ts'
+export { cssColor, resolvePalette, resolveStyle } from './resolve.ts'

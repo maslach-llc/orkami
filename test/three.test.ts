@@ -10,7 +10,7 @@ import { hingeAxis, pose } from '../src/core/pose.ts'
 import { stackOrder } from '../src/core/stack.ts'
 import { brightness, parseHex, slotTone, style as makeStyle, tone } from '../src/core/style.ts'
 import { glyph, layout, PACKET, wordFold, wordId } from '../src/glyphs/index.ts'
-import { bleedFor, buildFold, contactChunk, parseColor, resources, shadowSoftness, stage } from '../src/three/index.ts'
+import { bleedFor, buildFold, contactChunk, parseColor, resolvePalette, resolveStyle, resources, shadowSoftness, stage } from '../src/three/index.ts'
 
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} is not ${b}`)
 
@@ -317,4 +317,14 @@ test('shadows off (style.shadows.on false): no shadow map, no floor, no face cas
     h.root.traverse(o => { const m = o as Mesh; if (m.isMesh) assert.ok(!m.castShadow && !m.receiveShadow) })
   }
   st.dispose()
+})
+
+test('parseColor reads color(srgb ...), as a browser computes a color-mix(); resolveStyle keeps colors it can read', () => {
+  assert.deepEqual(parseColor('color(srgb 0.5 0.25 1)'), { rgb: [0.5, 0.25, 1], alpha: 1 })
+  assert.deepEqual(parseColor('color(srgb 0.5 0.25 1 / 0.5)'), { rgb: [0.5, 0.25, 1], alpha: 0.5 })
+  const el = {} as Element
+  const s = resolveStyle({ tones: { lit: [{ top: '#112233', bottom: 'rgb(1 2 3)' }, { top: '#fff', bottom: '#000' }] } }, el)
+  assert.deepEqual(s.tones.lit[0], { top: '#112233', bottom: 'rgb(1 2 3)' })
+  assert.deepEqual(resolvePalette({ lit: '#abc' }, el), { lit: '#abc', shade: undefined, back: undefined })
+  assert.throws(() => resolveStyle({ tones: { lit: [{ top: 'var(--x)', bottom: '#000' }, { top: '#fff', bottom: '#000' }] } }, { ownerDocument: { defaultView: null } } as unknown as Element), /without a window/)
 })
