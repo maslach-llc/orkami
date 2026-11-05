@@ -5,6 +5,8 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
 ### Fixed
 
 - The `waterbomb` and `preliminary` bases no longer sink below the page as they open. Their
@@ -80,5 +82,6 @@ The first release: the engine, two drivers, the Vue adapter and the playground.
 - The study (`docs/study/`), the vocabulary and decisions D1 to D16 (`docs/design/`), and the API
   reference (`docs/api/`).
 
-[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/maslach-llc/orkami/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/maslach-llc/orkami/releases/tag/v0.1.0
