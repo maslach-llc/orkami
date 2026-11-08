@@ -454,3 +454,126 @@ is loading), nothing moves, and the flat square is what the loader would have la
 a stop that fades the paper out, cuts it away or freezes it mid-fold; CSS transitions or keyframes
 for a loop; a loop over sheets of different sizes; under reduced motion, a loader that moves or
 one that renders nothing while the page is not ready.
+
+## Drafts for models in steps (D19 to D23)
+
+Drafted 2026-11-08 from `docs/study/04-models-in-steps.md` (doc 08), each to be confirmed or
+replaced by the doc named in it. Doc 08's plan called them D17 to D21; those numbers were taken by
+then (D17 printed faces, D18 loops), and this record is never renumbered, so they are D19 to D23.
+
+## D19 (draft, doc 09 confirms). A model is one crease pattern; a step names the creases it moves
+
+**Decision.** A model is one sheet with one crease pattern holding every crease the model ever
+makes (the union over its steps, pre-creases included), and an ordered list of steps. A step names
+the creases it moves and each one's target angle; every crease it does not name holds the angle
+the previous step left; its start is the previous step's end, so unfolding a model is its steps
+played backwards. A step's end is a keyframe: a flat-folded state, or, for a finishing step (the
+crane's wings), creases held at a stated angle. View steps (turn over, rotate) move no crease. The
+FOLD export is one `creasePattern` key frame and one `foldedForm` child frame per step
+(`frame_parent` the previous step, `frame_inherit: true`, `file_classes: ["diagrams"]`), the
+step's move and script under `frame_orkami:` keys.
+
+**Reason.** The faces never change identity, so a driver builds its elements or groups once and a
+step only changes angles (study 04, section 3); a chain of re-cut patterns would rebuild at every
+step boundary, and a model's boundaries are folded, not flat, so the swap would show. FOLD's
+`frame_inherit` is made for exactly this, and `fold-format.ts` already resolves it. The crane
+compiles to it (`docs/study/scripts/crane.ts`: every step's creases are segments of one sheet).
+
+**Rules out.** A chain of crease patterns cut per step; faces split or merged at runtime as a
+different model (a driver may merge faces joined at 0 as an optimization only); a step whose start
+is not the previous step's end; a finishing angle on a page block's named fold (D1's rest states
+stay for those; the held angle is a model's, and D1's owner confirms it in doc 09).
+
+## D20 (draft, doc 10 confirms). The general closure: Tachi's loop constraint, followed along its null space
+
+**Decision.** A step's pose is solved over the step's moving creases only, every other crease held.
+Each interior vertex the step touches contributes the loop constraint (the product of the rotations
+about its creases, axes in the flat sheet's frame, in counterclockwise order, is the identity; the
+residual is all nine entries of the product minus the identity, since a rotation by 180 has no skew
+part). The solver is Newton on the Jacobian (small dense linear algebra written in the core, no
+dependency) and the path is followed by pseudo-arclength continuation along the Jacobian's null
+space, starting each step on the null direction that points toward the step's targets and never
+crossing +-180. A step with one degree of freedom (N moving creases - 3 per touched vertex) is
+driven by the schedule's progress; one with more walks toward its targets. D10's bases keep their
+exact bisection, and a test checks that the general solver agrees with it.
+
+**Reason.** The study's scripts do exactly this and close to 7.1e-15 or better on every branch
+traced (degree-4 vertices, the petal fold), with steps of a quarter to half a degree; starting
+from the last frame's angles a few Newton iterations per frame suffice. The flat and flat-folded
+states are singular (two null directions at the petal's start, one per branch), so the start needs
+a rule, and the targets give one. Bisection is exact for the symmetric bases; keeping it means the
+general solver cannot regress them.
+
+**Rules out.** A strain or spring model; random restarts per frame; a solver that crosses +-180
+(the mirror petal branch runs a crease to 360); the skew part alone as the residual; a dependency
+for linear algebra.
+
+## D21 (draft, docs 10 and 11 confirm). A step that is not rigid plays a rigid path through a relaxed crease set
+
+**Decision.** When the closure has no rigid path from a step's start to its end with only the
+step's creases free, the step is played over a relaxed set: the step's creases plus the creases of
+the flap the move acts on (its spine and the creases where it joins the model), which may open
+during the step and must return to their angles by its end. The solver widens the relaxed set one
+flap at a time toward the root and takes the smallest that has a rigid path; a step that would
+have to open the whole model fails loudly. For an inside or outside reverse fold the path opens
+the flap's spine through the move's flat vertex and folds the reverse branch (the two branches of a
+degree-4 vertex meet only there). Every frame is a rigid state of the sheet.
+
+**Reason.** A reverse fold on a flap held by the model is locked (`reverse.ts`: the spine-in held,
+the walk cannot start); real paper does it by bending, which D1 rules out. Auxiliary creases were
+measured and fail: one per layer adds no freedom (a degree-4 vertex adds 3 creases and 3
+equations); fans of two to four per layer lock with the spine still 57 to 116 degrees from flat and
+the hidden hinges already at 90; the one fan that reached flat folded a hinge to 179, a crease the
+paper would keep. A strain solver is D1's and D8's rejection again. The relaxed path keeps D1
+whole, and the flap opening and closing is a motion paper really makes.
+
+**Rules out.** Bending a face; strain; auxiliary hinges hidden in a face (unless D1 is amended,
+with a budget, should doc 10 find the relaxed path reads badly on the crane's neck); a morph or a
+crossfade between two keyframes; tearing the sheet when no path exists.
+
+## D22 (draft, doc 11 confirms). A crease made through layers is the fold line mapped back through each layer
+
+**Decision.** `throughFold` takes a step's fold line in the folded image (the flat-folded state the
+step starts from), the layers it acts on and the side that moves. For each selected face whose image
+the line crosses, the face splits; the crease segment is the chord mapped back to the sheet through
+that face's own isometry; its assignment is V where the face shows its front and its part turns
+toward the viewer (or shows its back and turns away), M otherwise; the moving part's isometry is
+composed with the reflection in the line. The selection must contain every face joined beyond the
+line to a moving face (checked: a fold that would tear refuses). After the step the moving faces
+are restacked (on top for a fold toward the viewer, under for away, between the flap's layers for
+an inside reverse) and `stackOrder` (D12) is recomputed from the step's flat-folded state, not from
+the hinge tree.
+
+**Reason.** One line in the image is a different segment on every layer of the sheet (the crane's
+narrowing is one line and four segments in four directions in the front stack, `crane.ts`), so the
+segments cannot be typed by hand. Rabbit Ear's `flatFold` folds through all layers this way (read,
+not copied, D8); a model needs it restricted to named layers. The tear check is what makes "the
+front layer" honest: the crane's leg front is one face with the paper under the petal, so its
+narrowing crease must run on under the petal. In a model a face has layers above and below it that
+are not its tree neighbours, so the tree's stacking rule (D12) does not hold there.
+
+**Rules out.** Hand-typed sheet segments for a fold made through layers; an implicit "every layer"
+when the step names a flap; a selection that tears the sheet; the hinge tree's stacking for a
+model.
+
+## D23 (draft, doc 12 confirms). A model is written as a script of moves on landmarks
+
+**Decision.** A model's source is a JSON script: the sheet; named landmarks (corners, edge
+midpoints, the centre, intersections of creases, points where a crease meets an edge, flaps named by
+the corner at their tip, layers named as the front n or a flap's own); and steps, each a move from
+the Yoshizawa-Randlett vocabulary (valley, mountain, fold-and-unfold, turn over, rotate, inside and
+outside reverse, squash, petal, rabbit ear, pleat, crimp), its fold line defined by a Huzita-Hatori
+axiom over landmarks (or, for a step of taste, a line through a landmark at a stated angle to
+another line), the layers it acts on, and an optional caption in our own words. Landmarks resolve in
+the folded image of the step that uses them. The script compiles to D19's model through D22, every
+step is reversible (the unfold is the script played back), and the FOLD export is D19's.
+
+**Reason.** No existing format encodes moves through layers on named landmarks (study 04, section
+8: FOLD has frames and no moves; Rabbit Ear's diagrams keys describe pictures; the one landmark
+language found has single folds on a square only). Diagrams speak in moves on landmarks and axioms,
+so a script in those terms reads like one and survives a change of proportions; raw coordinates
+would freeze one drawing and are what a copied crease pattern would look like.
+
+**Rules out.** Raw coordinates as the encoding of a traditional model (an escape hatch, flagged, for
+imported patterns only); a sink (refused by name); copied diagram text as captions; Rabbit Ear's
+`re:` keys as orkami's schema.

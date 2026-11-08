@@ -31,7 +31,16 @@ that needs a new word adds it here in the same commit.
 | **print** | What is on the front of a face: the block's content and the face's print color (its tone slot's gradient). Print moves with the face and is hidden while the back faces the visitor; it never fades on its own. |
 | **reach** | The distance from a crease to the farthest point of its flap, in px. Sets the crease's duration and the shadow's height. |
 | **stagger** | A schedule where sibling flaps on the root start one step apart; distinct from an accordion, where panels are a chain. |
-| **move** | A fold applied to an already folded pose (reverse fold, squash, petal, rabbit ear, sink): new creases through existing layers, scheduled as one coupled motion. Not a named fold in the first release. |
+| **move** | A fold applied to an already folded pose (reverse fold, squash, petal, rabbit ear, sink): new creases through existing layers, scheduled as one coupled motion. Not a named fold in the first release; in a model, what a step does (Yoshizawa-Randlett's names, D23). |
+| **model** | A figure folded from one sheet in steps (the crane, the frog): one crease pattern holding every crease it ever makes, and an ordered list of steps (D19). |
+| **step** | One entry of a model: the creases it moves and their target angles, every other crease holding; its start is the previous step's end, its end a keyframe (flat-folded, or held angles for a finishing step). A view step (turn over, rotate) moves no crease. |
+| **layer** | One thickness of paper in a folded state: a face (or part of one) at a place in the stack. A fold through layers crosses each of them in a different segment of the sheet. |
+| **through-fold** | A crease made through layers that are already folded: one line in the folded image, mapped back through each layer's own placement to its segment of the sheet (D22). |
+| **auxiliary crease** | A hinge that is flat before and after a step and turns only during it, to give a step freedom it lacks. Studied and rejected for reverse folds (study 04, section 2; D21). |
+| **landmark** | A named point, line, flap or layer of the sheet or of a folded state (a corner, an edge midpoint, the centre, a crease's intersection, the front n layers) that a script's fold lines are defined on (D23). |
+| **axiom** | One of the seven Huzita-Hatori ways a single fold line is defined from points and lines already on the paper (through two points, a point onto a point, a line onto a line, ...). |
+| **script** | A model's source: its landmarks and steps written as moves on landmarks with axiom-defined lines, compiled to the model (D23). |
+| **relaxed set** | For a step with no rigid path on its own creases: those creases plus the creases of the flap it acts on, which may open during the step and close by its end (D21). |
 | **settle** | The last part of a landing: the easing's tail into angle 0, the hairline appearing, the contact shadow returning. No bounce. |
 | **hairline** | The 1 px line left on a face along a crease once it is flat. |
 | **grain** | The noise tile multiplied over every face: the paper's texture. |
