@@ -477,8 +477,10 @@ side-by-side rabbit ears".
   about its interior vertex). Unfold order: the ears first (each one coupled motion), then the
   kite flaps.
 - The engine: two interior vertices of degree 4, each with one degree of freedom (a flat-foldable
-  degree-4 vertex folds rigidly along one path; *unverified, from memory*). Needs the closure
-  solver of 3.7 twice. Not in the first release's playground; catalogued so the pattern and the
+  degree-4 vertex folds rigidly along one path; *checked 2026-11-08*: `docs/study/scripts/degree4.ts`
+  traces the fish ear's incenter vertex, sectors 56.25, 78.75, 123.75, 101.25, along both of its
+  branches from flat to flat-folded, closure residual under 1e-15, study 04 section 1). Needs the
+  closure solver of 3.7 twice. Not in the first release's playground; catalogued so the pattern and the
   order are fixed.
 - Suits: nothing on a page yet; a glyph base.
 
@@ -497,6 +499,15 @@ as a named fold in the first release, and the definitions are here so the words 
 | petal fold | "starts with two connected flaps, each of which has at least two layers"; the point is lifted and the edges meet on the center line; "equivalent to two side-by-side rabbit ears joined along a reference crease" (same source) | two degree-4 vertices, mirrored; one parameter by symmetry |
 | rabbit ear | the three bisectors of a triangle meet at its incenter and the corner lies down as a point (same source) | one degree-4 vertex |
 | sink | a closed point pushed inside the model, reversing the creases around it; "considered an intermediary to high skill" (same source) | many vertices; out of scope |
+
+*Checked 2026-11-08* (`docs/study/04-models-in-steps.md` section 1, scripts in
+`docs/study/scripts/`): the rabbit ear and the petal fold are rigid, one parameter each (the petal
+on a folded preliminary base: its kite creases turn together while the flap's edge opens, closure
+residual under 1e-15, `petal.ts`); an inside or outside reverse fold is rigid only through its
+vertex's flat state, so on a flap the model holds folded it is not rigid at all (`reverse.ts`), and
+D21 says what the engine does with it. The squash is not checked yet (doc 11). "One coupled
+motion" above holds for the rabbit ear and the petal; for the reverse folds it is a motion through
+a relaxed set of creases (D21).
 
 ## 4. How a fold moves in time
 
@@ -650,8 +661,8 @@ Read this session, 2026-11-02:
 - The seed: `origami.css`, `unfold.ts`, `utils/origami.ts`,
   `OrigamiUnfold.vue`, `OrigamiUnfold3D.vue` (removed by doc 04, in git history).
 
-Unverified, from memory: the one-degree-of-freedom rigid path of a flat-foldable degree-4 vertex
-(3.10); the existence of the symmetric rigid collapse path of the waterbomb and preliminary bases
-from flat to flat-folded (3.7, 3.8; the folded-state assignments and the Maekawa counts are
-derived above, the continuous path is asserted). The rest of section 3's geometry (landing
+Unverified, from memory, when written: the one-degree-of-freedom rigid path of a flat-foldable
+degree-4 vertex (3.10; checked numerically 2026-11-08, `docs/study/scripts/degree4.ts`); the
+existence of the symmetric rigid collapse path of the waterbomb and preliminary bases from flat to
+flat-folded (3.7, 3.8; checked numerically in doc 02, D10). The rest of section 3's geometry (landing
 points, overlaps, layer walks) is derived in this document and is testable in doc 02.
