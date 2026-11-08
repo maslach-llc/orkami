@@ -43,6 +43,7 @@ export class FakeClassList {
     return on
   }
   toString() { return [...this.set].join(' ') }
+  [Symbol.iterator]() { return this.set.values() }
 }
 
 export class FakeElement {
@@ -77,6 +78,25 @@ export class FakeElement {
   get firstChild() { return this.children[0] ?? null }
   setAttribute(n: string, v: string) { this.attributes.set(n, v) }
   getAttribute(n: string) { return this.attributes.get(n) ?? null }
+  removeAttribute(n: string) { this.attributes.delete(n) }
+  /** A copy with its style, classes, attributes and dataset (and children, deep). */
+  cloneNode(deep = false): FakeElement {
+    const c = new FakeElement(this.ownerDocument, this.tagName, this.offsetWidth, this.offsetHeight)
+    for (const [k, v] of this.style.entries) c.style.setProperty(k, v)
+    c.classList.add(...this.classList.set)
+    for (const [k, v] of this.attributes) c.attributes.set(k, v)
+    c.dataset = { ...this.dataset }
+    c.textContent = this.textContent
+    if (deep) for (const k of this.children) c.appendChild(k.cloneNode(true))
+    return c
+  }
+  textContent = ''
+  // An <img>: `src`, the natural size the document gives its images, and decode()
+  src = ''
+  decoding = ''
+  get naturalWidth() { return this.ownerDocument.imageSize[0] }
+  get naturalHeight() { return this.ownerDocument.imageSize[1] }
+  decode(): Promise<void> { return this.ownerDocument.imageFails ? Promise.reject(new Error(`could not decode ${this.src}`)) : Promise.resolve() }
   appendChild(c: FakeElement) { c.remove(); c.parentNode = this; this.children.push(c); return c }
   append(...cs: FakeElement[]) { cs.forEach(c => this.appendChild(c)) }
   prepend(...cs: FakeElement[]) { cs.forEach(c => c.remove()); cs.forEach(c => { c.parentNode = this }); this.children.unshift(...cs) }
@@ -155,6 +175,9 @@ export class FakeDocument {
   defaultView: FakeWindow
   documentElement: FakeElement
   body: FakeElement
+  /** The natural size every image decodes to, and whether decoding fails. */
+  imageSize: [number, number] = [0, 0]
+  imageFails = false
   constructor(win = new FakeWindow()) {
     this.defaultView = win
     win.document = this

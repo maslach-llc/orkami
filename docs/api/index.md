@@ -19,7 +19,7 @@ below it, and nothing below a driver touches the DOM.
   angle and transform; both drivers draw from it, so a fold looks the same in either.
 - The look is a `Style` (core): tones, crease hairlines, grain, shadows and the one light. Pass
   overrides to any driver or component; `DEFAULT_STYLE` is the neutral paper.
-- The decisions behind the model are D1 to D16 in [`../design/01-decisions.md`](../design/01-decisions.md);
+- The decisions behind the model are D1 to D17 in [`../design/01-decisions.md`](../design/01-decisions.md);
   the words are defined in [`../design/00-vocabulary.md`](../design/00-vocabulary.md).
 
 ## Typing

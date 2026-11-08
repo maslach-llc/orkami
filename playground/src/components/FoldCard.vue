@@ -5,10 +5,13 @@
 import { computed, ref } from 'vue'
 import { Unfold } from 'orkami/vue'
 import type { NamedFold } from 'orkami'
+import type { Print } from 'orkami/css'
 import CreasePattern from './CreasePattern.vue'
 import { SHAPES, tryFold, type Shape } from '../shared'
 
-const props = defineProps<{ name: NamedFold; shape: Shape }>()
+const props = withDefaults(defineProps<{ name: NamedFold; shape: Shape; print?: 'landed' | 'image' | 'content'; still?: boolean }>(), { print: 'landed', still: false })
+// The sample picture is printed across every face, so it joins seamlessly when the card is flat
+const printed = computed<Print>(() => props.print === 'image' ? { image: `${import.meta.env.BASE_URL}sample/print.svg` } : props.print)
 const size = computed(() => SHAPES[props.shape])
 const built = computed(() => tryFold(props.name, size.value[0], size.value[1]))
 const open = ref(false)
@@ -22,7 +25,7 @@ const suited = computed(() => built.value.fold?.suits?.includes(props.shape) ?? 
 <template>
   <figure class="fc">
     <div class="fc-stage" :style="{ width: `${size[0]}px`, height: `${size[1]}px`, marginTop: `${reach}px` }" @mouseenter="open = true" @mouseleave="open = false">
-      <Unfold v-if="built.fold" :fold="built.fold" :open="isOpen" class="fc-block pg-card">
+      <Unfold v-if="built.fold" :fold="built.fold" :open="isOpen" :print="printed" :still="still" class="fc-block pg-card">
         <span class="fc-label">{{ name }}<br><small>{{ shape }}</small></span>
       </Unfold>
       <p v-else class="fc-refused pg-muted">{{ built.error }}</p>

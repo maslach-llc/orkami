@@ -108,7 +108,7 @@ npm run play          # http://localhost:5173
 
 - [`docs/api/`](docs/api/index.md): the API, entry by entry.
 - [`docs/study/`](docs/study/): how paper folds, what reads as paper on a screen, what exists already.
-- [`docs/design/`](docs/design/): the vocabulary, the decisions (D1 to D16) and the house look.
+- [`docs/design/`](docs/design/): the vocabulary, the decisions (D1 to D17) and the house look.
 - [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Contributing a named fold

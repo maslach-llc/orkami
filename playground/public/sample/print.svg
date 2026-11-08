@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="720" viewBox="0 0 360 720">
+  <!-- A playground sample picture drawn for orkami: printed across a fold's faces to show the seams join. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b1033"/>
+      <stop offset=".35" stop-color="#2a2a6e"/>
+      <stop offset=".62" stop-color="#8a3f7a"/>
+      <stop offset=".8" stop-color="#ee7a4a"/>
+      <stop offset="1" stop-color="#ffc66b"/>
+    </linearGradient>
+    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3a35a"/>
+      <stop offset=".4" stop-color="#7a4277"/>
+      <stop offset="1" stop-color="#1c1d4d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- sky -->
+  <rect width="360" height="440" fill="url(#sky)"/>
+
+  <!-- stars -->
+  <g fill="#fff8e0">
+    <polygon points="40,40 42,46 48,48 42,50 40,56 38,50 32,48 38,46"/>
+    <polygon points="300,70 301.5,74 306,75.5 301.5,77 300,81 298.5,77 294,75.5 298.5,74"/>
+    <polygon points="120,110 121,113 124,114 121,115 120,118 119,115 116,114 119,113"/>
+    <polygon points="210,30 211,33 214,34 211,35 210,38 209,35 206,34 209,33"/>
+    <polygon points="70,170 71,173 74,174 71,175 70,178 69,175 66,174 69,173"/>
+    <polygon points="330,180 331,183 334,184 331,185 330,188 329,185 326,184 329,183"/>
+    <polygon points="160,60 161,62 163,63 161,64 160,66 159,64 157,63 159,62"/>
+    <polygon points="20,250 21,252 23,253 21,254 20,256 19,254 17,253 19,252"/>
+  </g>
+
+  <!-- moon, a crescent -->
+  <circle cx="250" cy="140" r="40" fill="#fff1c4"/>
+  <circle cx="268" cy="128" r="36" fill="#26286a"/>
+
+  <!-- birds -->
+  <g fill="none" stroke="#1a1238" stroke-width="3" stroke-linejoin="miter">
+    <polyline points="70,300 82,292 92,302 102,292 114,300"/>
+    <polyline points="128,272 136,266 143,273 150,266 158,272"/>
+    <polyline points="40,338 48,333 54,339 60,333 68,338"/>
+  </g>
+
+  <!-- far ridge -->
+  <polygon fill="#a8577f" points="0,380 40,330 78,362 130,300 176,350 220,312 262,346 310,296 360,340 360,450 0,450"/>
+  <!-- middle ridge -->
+  <polygon fill="#6a356f" points="0,410 52,370 96,398 150,350 196,396 244,362 290,400 336,372 360,384 360,450 0,450"/>
+  <!-- near ridge, snow caps -->
+  <polygon fill="#3a2458" points="0,440 30,418 74,436 118,396 170,438 222,406 272,436 320,410 360,430 360,450 0,450"/>
+  <polygon fill="#d9c4e6" points="118,396 106,408 114,406 120,412 128,404 132,407"/>
+  <polygon fill="#d9c4e6" points="222,406 212,416 220,414 226,419 232,413"/>
+
+  <!-- lake with the moon's and sunset's reflections -->
+  <rect y="440" width="360" height="130" fill="url(#lake)"/>
+  <g fill="#ffd89a" opacity=".85">
+    <polygon points="226,462 274,462 266,468 234,468"/>
+    <polygon points="234,480 266,480 260,485 240,485"/>
+    <polygon points="240,498 260,498 256,502 244,502"/>
+  </g>
+  <g fill="#fff3d6" opacity=".5">
+    <polygon points="20,470 120,470 112,474 28,474"/>
+    <polygon points="60,520 170,520 160,524 70,524"/>
+    <polygon points="280,540 350,540 344,544 286,544"/>
+  </g>
+
+  <!-- shore -->
+  <polygon fill="#15122e" points="0,560 60,548 140,560 210,546 290,558 360,548 360,720 0,720"/>
+
+  <!-- pines, layered -->
+  <g fill="#1f3a3a">
+    <polygon points="250,470 278,560 222,560"/>
+    <polygon points="250,450 272,520 228,520"/>
+    <polygon points="300,490 324,560 276,560"/>
+    <polygon points="300,474 318,530 282,530"/>
+  </g>
+  <g fill="#0d2420">
+    <polygon points="40,430 92,600 -12,600"/>
+    <polygon points="40,400 84,540 -4,540"/>
+    <polygon points="40,370 74,480 6,480"/>
+    <rect x="34" y="600" width="12" height="40"/>
+    <polygon points="120,500 154,620 86,620"/>
+    <polygon points="120,476 148,570 92,570"/>
+    <rect x="116" y="620" width="8" height="26"/>
+    <polygon points="330,420 380,600 280,600"/>
+    <polygon points="330,392 372,540 288,540"/>
+    <polygon points="330,366 362,470 298,470"/>
+    <rect x="324" y="600" width="12" height="40"/>
+  </g>
+
+  <!-- foreground meadow and stones -->
+  <polygon fill="#2c1c3e" points="0,640 90,622 180,644 270,620 360,636 360,720 0,720"/>
+  <polygon fill="#4a3460" points="170,660 196,648 224,656 230,676 186,680"/>
+  <polygon fill="#6b5582" points="196,648 224,656 206,664"/>
+  <polygon fill="#e88a4e" points="0,700 360,690 360,720 0,720" opacity=".35"/>
+</svg>

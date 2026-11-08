@@ -10,7 +10,7 @@ import Unfold3D from './Unfold3D.vue'
 import Word from './Word.vue'
 import { vUnfold } from './unfold.ts'
 
-export { vUnfold, foldFor, handlesOf, options as unfoldOptions, type Hinge, type FoldSpec, type UnfoldOptions, type UnfoldValue } from './unfold.ts'
+export { vUnfold, foldFor, handlesOf, openWhenReady, options as unfoldOptions, type Hinge, type FoldSpec, type UnfoldOptions, type UnfoldValue } from './unfold.ts'
 export { useFold, type UseFold } from './useFold.ts'
 export { Unfold, Unfold3D, Word, Mark }
 

@@ -5,6 +5,21 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ## [Unreleased]
 
+### Added
+
+- Printed faces (D17): `print: { image, fit?, position? }` on the CSS driver's `mount` and the
+  WebGL driver's `buildFold` prints a picture across every front in sheet coordinates, so it is
+  folded inside the paper and the faces join into the whole picture when flat; the backs stay the
+  sheet. The CSS driver also prints `'content'` (a hidden clone of the element on up to 12
+  faces); `'landed'` stays the default. The placement is the core's: `printRect`, `facePrint`,
+  `printUv`, `printPolygon` in `src/core/print.ts`.
+- `Handle.ready` and `FoldHandle.ready` resolve once the picture is decoded; the Vue adapter waits
+  for it before opening.
+- A still mount: `still: true` on `mount` mounts flat and landed with no transition and builds no
+  flap until it folds; `v-unfold`, `<Unfold>` and `<Unfold3D>` take `still` (and `print`).
+- The playground's Folds page has a print switch (landed, image, content) and a still toggle over
+  a bundled sample picture; the Page page prints it on its tall columns.
+
 ## [0.1.2] - 2026-11-05
 
 ### Fixed
