@@ -35,6 +35,14 @@ What the DOM looks like while folded, all inside one `.ori-fold` layer (`positio
 - Rule: the host must not clip. `overflow` other than `visible` on it clips the paper swinging past its box; put the clip on a wrapper outside or on the content inside.
 - Shadow at rest: a face lying in the sheet casts nothing; the stack from `shadowAt(0)` comes in over the first `contact.fade` px of lift (`opacity * min(1, h / fade)`), since a flap folded flat against the page is part of the page, not a card on it. Doc 02's resting stack is for a painted glyph standing on the sheet.
 
+## loop.ts: mountLoop
+
+A core `Loop` (D18) played on one element: one step's `mount` at a time, driven by `set(t)` on `requestAnimationFrame`, not CSS transitions (a loop has no end state for a transition to aim at).
+
+- `mountLoop(el, loop, options?)`: mounts the loop's first step flat at once (`mount` with `at: 1`, `drive: 'frame'`) and returns a `LoopHandle`; nothing moves until `start()`. When the clock crosses into a new step the mounted step's flaps are destroyed and the next step's mounted in their place; that happens only after the gap, where the last frame drawn was the flat sheet every step shares, so the swap does not show. Under `prefers-reduced-motion: reduce` `start()` moves nothing: the first step lies flat and `stop()` resolves at once.
+- `LoopMountOptions`: `mount`'s `MountOptions` without `at`, `schedule`, `still`, `drive` and `delay` (`style`, `sheet`, `perspective`, `print` pass through), plus `now?: () => number` (the clock in ms, `performance.now` by default; a test passes a fake) and `onStep?: (step) => void` (called with the index each time a step's flaps are mounted, the first included).
+- `LoopHandle`: `el`, `loop`, `step` (the index of the mounted step), `t` (the mounted step's, 1 flat, 0 closed), `running`, `handle` (the mounted step's `Handle` from `mount`; undefined once destroyed), `start()` (the loop from its beginning, `set(t)` from `loop.at` every frame, so the shadows are painted from the pose every frame), `stop(): Promise<void>` (lets the playing step run to `loop.nextFlat`, lands it flat and resolves there, never mid-fold; at once when not running), `destroy()` (cancels, removes everything the driver added, leaves the element as it was).
+
 ## sheet.ts: the page's paper
 
 - `paintSheet(sheet?, { mode, document }?)`: registers the page's sheet on `<html>`: `--ori-sheet` (the image, `none` for a plain color), `--ori-paper` (the color under it), `--ori-vw/--ori-vh` (the size the fixed sheet is drawn at). No argument: the folded example sheet in the page's own tokens (`--ori-bg`, `--ori-ink`, `--ori-accent`); call it again after the tokens change (a theme toggle).
@@ -52,4 +60,4 @@ What the DOM looks like while folded, all inside one `.ori-fold` layer (`positio
 
 ## orkami.css
 
-The tokens (`--ori-bg`, `--ori-ink`, `--ori-accent`, `--ori-paper`, `--ori-ease`, `--ori-layer`, `--ori-ply`, the light, the grain), `@property --ori-a` (an inherited `<angle>`), and the rules the driver's classes rely on, in six numbered sections in the file's header. Import it once; the driver sets the classes and the custom properties. Under `prefers-reduced-motion: reduce` and in print the flaps, grounds and shadows are hidden and the content shows flat from the start.
+The tokens (`--ori-bg`, `--ori-ink`, `--ori-accent`, `--ori-paper`, `--ori-ease`, `--ori-layer`, `--ori-ply`, the light, the grain), `@property --ori-a` (an inherited `<angle>`), and the rules the driver's classes rely on, in six numbered sections in the file's header. Import it once; the driver sets the classes and the custom properties. `.ori-loader` centers the loader's square and `.ori-loader-paper` paints it with the sheet, as `.ori-paper` does, under a class the driver never removes (a loop swaps its step's mount at flat, D18). Under `prefers-reduced-motion: reduce` and in print the flaps, grounds and shadows are hidden and the content shows flat from the start.

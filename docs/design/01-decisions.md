@@ -421,3 +421,36 @@ driver's.
 **Rules out.** A picture that fades in or appears at the landing; a picture on the backs; a
 print placed by a driver's own arithmetic (it is the core's); a fold that starts before its
 picture is decoded; content cloned onto an unbounded number of faces.
+
+## D18. A loop is a sequence of real folds that meet at flat; stop lands flat
+
+**Decision.** A loop (`loop()` in `src/core/loop.ts`) is a list of steps, each a valid fold on
+one sheet (the same width and height, checked), each played whole: fold-in (its unfold schedule
+from t = 1 to t = 0, so the first crease undone is the last one made), `hold` at closed (240 ms),
+unfold (t = 0 to 1), `gap` at flat (160 ms), then the next step. The core is pure: `at(ms)` gives
+the step, its t and its phase, `nextFlat(ms)` the first flat moment at or after `ms`, never more
+than one step away. The default steps are the square bases, waterbomb, preliminary and blintz
+(`LOOP_BASES`). Drivers run a loop on `requestAnimationFrame` with `set(t)` from their own clock:
+the CSS driver's `mountLoop` mounts one step at a time (`mount` at flat, `drive: 'frame'`) and
+swaps the mounted step's flaps for the next step's when the clock crosses into it, which happens
+only after the gap's flat frames; the WebGL stage's `loop()` removes and disposes the old step's
+handle and builds the next step's groups at the same flat swap. `stop()` lets the playing step run
+to `nextFlat`, lands it flat and resolves there. Under reduced motion the loader shows the flat
+square, still, and reports done as soon as it is ready.
+
+**Reason.** Real paper cannot morph from one base into another (study section 5): going from the
+waterbomb to the preliminary base is an unfold to flat and a fold on the other assignment, so every
+frame between two steps that is not flat would be a sheet that stretches or tears. Every step's
+flat state is the same sheet, so swapping its crease pattern there is invisible, and every step
+passes through it, so a stop always has a flat moment within one step to land on and never needs
+to fade or cut mid-fold. A loop has no end state for a CSS transition to aim at, and a transition
+retargeted at each phase would restart its easing at every turn; one clock driving `set(t)` keeps
+every frame on the schedule and paints the shadow from the pose each frame, so it breathes as the
+paper rises and lands. Under reduced motion the flat square, not nothing: the status stays visible
+(the element keeps its `role="status"` and label, and a sighted visitor still sees that something
+is loading), nothing moves, and the flat square is what the loader would have landed on anyway.
+
+**Rules out.** A morph or crossfade between two bases; a step that starts from anything but flat;
+a stop that fades the paper out, cuts it away or freezes it mid-fold; CSS transitions or keyframes
+for a loop; a loop over sheets of different sizes; under reduced motion, a loader that moves or
+one that renders nothing while the page is not ready.

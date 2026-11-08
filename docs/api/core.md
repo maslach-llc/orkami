@@ -66,6 +66,16 @@ One line per export; the file each lives in is the heading.
 - `dihedral(fold, crease, faces)`: the signed angle between a crease's two faces in a pose.
 - `flatBack(fold, creaseId)`: the `Affine` that says where the child's content lands folded flat over that crease, composed down the tree: the CSS driver paints the back with the sheet under this map (02, cue 2).
 
+## loop.ts: a fold that loops (D18)
+
+- `loop(steps, { hold?, gap? }?)`: a `Loop` over `steps`, played in order and wrapping: each step's fold-in (its schedule from t = 1 to 0, so the first crease undone is the last made), `hold` ms at closed, its unfold (t = 0 to 1), `gap` ms at flat, then the next step. Throws on no steps, a negative `hold` or `gap`, a step that fails `validate`, a step on a sheet of another width or height (a loop is one sheet), or a duration not over 0. Pure: no timers, no clock.
+- `LoopStep`: `{ fold, schedule?, duration? }`; `schedule` the unfold schedule (the fold's own, else `together`), `duration` ms for each of the fold-in and the unfold (the schedule's `total` by default).
+- `LoopStepResolved`: `{ fold, schedule, duration, start, length }`; `start` where the step begins on the loop's clock, `length` its `2 * duration + hold + gap`.
+- `LoopAt`: `{ step, t, phase, cycle }`: the step's index, its t (1 flat, 0 closed), `LoopPhase` (`'fold-in' | 'hold' | 'unfold' | 'gap'`) and how many whole loops have played before.
+- `Loop`: `steps` (resolved), `hold`, `gap`, `period` (every step's length, ms), `at(ms)` (the `LoopAt` at `ms` from the loop's start, wrapping past `period`), `nextFlat(ms)` (the first moment at or after `ms` when the sheet is flat: `ms` itself when it is, else the end of the playing step's unfold; never more than one step away: where a stop lands).
+- `LOOP_HOLD` 240 ms (a pause, not a stall), `LOOP_GAP` 160 ms (a flat frame for a driver to swap steps on), `LOOP_BASES` `['waterbomb', 'preliminary', 'blintz']`, the default steps (study section 5).
+- `loopSteps(size, names = LOOP_BASES)`: the named folds as `LoopStep`s on a `size` x `size` square (the bases need a square).
+
 ## light.ts: the one light
 
 - `LIGHT`: `[-0.346, -0.538, 0.769]`, toward the light, page coordinates (D5). `AMBIENT` .35, `DIFFUSE` .85.
