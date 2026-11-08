@@ -46,11 +46,18 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 - Emits `done` once the paper lies flat after `ready`; at once when skipped or under reduced motion.
 - Reduced motion: the flat square, still, and `done` as soon as `ready` (D18). The flat sheet stays after `done`: the site removes the component or lets the flat sheet become the page's background.
 
+## FoldModel.vue: a model folded in steps (D19)
+
+- `<FoldModel model="preliminaryKite" :step="k" />`: a `size` x `size` square of paper drawn by the CSS driver's `mountModel`, playing to `step` (an s: 0 the flat sheet, k the end of step k) whenever it changes, from wherever the paper is, at the steps' own pace: forward folds, backward unfolds.
+- Props: `model` (a `NamedModel`, a `Model`, or a factory from the side; `'preliminaryKite'`), `step` (unset: stays where `at` put it until `play()`), `at` (the s to mount at, 0), `size` (px, 240), `style` (`StyleOverrides`), `pace` (a multiplier on every step's duration, 1; the playground's slow toggle passes 4), `tag` (`'div'`). `model`, `size`, `style` and `pace` rebuild the paper at the current s.
+- Emits `step` with s on every arrival, `done` when it arrives at the finished model.
+- Exposes `handle` (the `ModelHandle`), `s`, `playing`, `play(to?)` (to the end by default; resolves on arrival) and `set(s)` (no motion).
+
 ## loader.ts: the loader's timing
 
 - `loaderPlan(readyAt, now, { minMs, skipWithin })`: pure, what `<FoldLoader>` shows at `now`; times in ms since mount, `readyAt` undefined until ready. Returns `{ phase, next? }`: `'skip'` when `readyAt <= skipWithin`; `'wait'` (render nothing yet, `next` = `skipWithin`) while `now < skipWithin`; `'loop'` while not ready, or ready but before `max(readyAt, skipWithin + minMs)` (`next` = that moment); `'stop'` after.
 
 ## index.ts
 
-- `plugin` (also the default export): `app.use(plugin)` registers `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>`, `<Mark>` and `<FoldLoader>`.
-- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `openWhenReady`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark`, `FoldLoader`, `loaderPlan` and the types above.
+- `plugin` (also the default export): `app.use(plugin)` registers `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>`, `<Mark>`, `<FoldLoader>` and `<FoldModel>`.
+- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `openWhenReady`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark`, `FoldLoader`, `FoldModel`, `loaderPlan` and the types above.

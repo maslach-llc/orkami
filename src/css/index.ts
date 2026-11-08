@@ -3,5 +3,6 @@
 // it; `orkami/orkami.css` carries the rules the flaps rely on.
 export { mount, castShadow, grainUrl, sidePolygon, fits, CONTENT_FACES, type Handle, type MountOptions, type Drive, type State, type Print } from './driver.ts'
 export { mountLoop, type LoopHandle, type LoopMountOptions } from './loop.ts'
+export { mountModel, type ModelHandle, type ModelMountOptions } from './model.ts'
 export { paintSheet, trackSheet, measureSheet, paintOffset, resolveSheet, pageColors, type SheetSpec, type SheetMode, type PaintOptions } from './sheet.ts'
 export * from './sheets/folded.ts'

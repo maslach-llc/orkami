@@ -179,5 +179,18 @@
   .ori-creases { opacity: 1 !important; transition: none !important; }
 }
 
+/* A model folded in steps (mountModel, D19): a sheet of paper on its own, never landed into the
+   page, its angles written every frame and each side's --ori-k written inline from the posed
+   normal (a face turned through several hinges is not lit by its own flap's angle). The host
+   never gets is-landed, but a model can sit inside a landed host, and reduced motion still shows
+   the model (at its end, not as content), so the rest rules are undone here, and the angle's
+   transition is off so it cannot lag the per-frame drive. */
+.ori-fold.ori-model .ori-flap { transition: none !important; visibility: visible; }
+.ori-fold.ori-model > .ori-side { visibility: visible; }
+.ori-model-creases { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+@media (prefers-reduced-motion: reduce), print {
+  .ori-fold.ori-model .ori-flap { display: block !important; }
+}
+
 /* The loader (FoldLoader, D18): a square of paper centered in its box */
 .ori-loader { display: grid; place-items: center; }

@@ -5,6 +5,11 @@
 // front and a back mesh, lit by the one light (D5) through `MeshLambertMaterial`. `set(t)` takes
 // the angles from `pose()` and only sets rotations: the core computes, the driver draws.
 //
+// A model (D19) is drawn by the same groups: its faces never change across its steps and its
+// hinge tree is its pattern's own, so `buildModel` builds once and its `set(s)` only changes
+// what drives the groups (the pose from `modelPose()`, the layers from the nearer keyframe's
+// stack, the hairlines from the creases made so far). Both are one builder with a driver.
+//
 // Coordinates. The core works in page coordinates (x right, y down, z toward the visitor), which
 // is a mirror of three's (y up). Every point goes into the scene as (x, -y, z); a rotation by a
 // about the page axis (ux, uy, 0) is then a rotation by -a about (ux, -uy, 0). The root group is
@@ -40,7 +45,8 @@ import {
   Vector3,
 } from 'three'
 import type { Pt } from '../core/affine.ts'
-import { centroid, face as faceOf, seamOf, shadeSeams, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
+import { centroid, face as faceOf, seamOf, shadeSeams, treeCreases, type Crease, type CreaseId, type Face, type FaceId, type Fold } from '../core/fold.ts'
+import { creasesMade, keyAt, modelPose, modelStack, stepAt, type Model } from '../core/model.ts'
 import { hingeAxis, pose, type Pose } from '../core/pose.ts'
 import { printRect, printUv, type PrintFit, type Rect } from '../core/print.ts'
 import { together, type Schedule } from '../core/schedule.ts'
@@ -111,6 +117,33 @@ export interface FoldHandle {
   readonly ready: Promise<void>
   /** Where the picture lies on the sheet (sheet px), the sheet itself until it has loaded. */
   readonly printRect: Rect | undefined
+}
+
+/** How a model is built: a fold's options without the schedule (each step carries its own), `at` the s to build at (0, the flat sheet, by default). The layer step is in full at every s: a model's tree crease can lie at 0 between faces of different layers. */
+export type ModelBuildOptions = Omit<BuildOptions, 'schedule' | 'at'> & { at?: number }
+
+/** A model's handle: a fold handle whose time is the model's `s` (0 the flat sheet, k the end of step k) in place of `t`, and whose `fold` is the model. There is no single schedule: each step has its own. */
+export interface ModelHandle extends Omit<FoldHandle, 'schedule' | 't' | 'set'> {
+  readonly model: Model
+  /** The number of steps: s runs over [0, steps]. */
+  readonly steps: number
+  /** The current s. */
+  readonly s: number
+  /** Puts the model at s (clamped to [0, steps]): the pose from `modelPose()`, each flap lifted by the nearer keyframe's layer step, the creases made so far drawn. */
+  set(s: number): void
+}
+
+/** What moves the groups: a fold's t or a model's s, each to a pose, a lift per hinged face and a share of each hairline's alpha. */
+interface Driver {
+  /** The end of the driver's time: 1 for a fold's t, the step count for a model's s. */
+  end: number
+  pose(at: number): Pose
+  /** The hinged face's lift along its parent's normal at `at`, in layer steps. */
+  lift(crease: Crease, angle: number, at: number): number
+  /** The share of a crease's hairline alpha at `at`, 0..1. */
+  line(crease: CreaseId, at: number): number
+  /** Whether the hairlines differ crease by crease (one material each) rather than all together (one per color). */
+  perLine: boolean
 }
 
 /** The height (sheet units) above which a face casts a shadow: past its own layer step, so a face lying in the sheet casts none. */
@@ -253,10 +286,104 @@ float oriAlong(vec2 a, vec2 b) { vec2 d = b - a; return clamp(dot(vOriSheet - a,
 
 /** Builds the fold as nested groups and returns the handle that poses them. */
 export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
-  const style = makeStyle(options.style as StyleOverrides | undefined)
   const schedule = options.schedule ?? fold.schedule ?? together(fold)
+  const b = build(fold, options, (tree) => {
+    const stack = stackOrder(fold, tree)
+    return {
+      end: 1,
+      pose: t => pose(fold, t, schedule),
+      // The layer step in full where the faces stack (closed) and none where they only tile (flat): a depth buffer needs it only for overlap
+      lift: (c, angle) => c.closed > 0 ? (stack.step[c.id] ?? 0) * Math.min(1, Math.abs(angle) / c.closed) : 0,
+      // The hairlines come in over the last third of the motion and stay (02, cue 6)
+      line: (_, t) => Math.min(1, Math.max(0, (t - 2 / 3) * 3)),
+      perLine: false,
+    }
+  })
+  return {
+    fold,
+    style: b.style,
+    schedule,
+    root: b.root,
+    groups: b.groups,
+    faces: b.faces,
+    backs: b.backs,
+    lines: b.lines,
+    get t() { return b.at },
+    get pose() { return b.pose },
+    get height() { return b.height },
+    set: b.set,
+    ready: b.ready,
+    get printRect() { return b.printRect },
+    dispose: b.dispose,
+  }
+}
+
+/**
+ * Builds a model (D19) as nested groups, once, and returns the handle that poses it at any s.
+ * The groups are the pattern's hinge tree, the same at every step; `set(s)` takes the pose from
+ * `modelPose()`. The layers are the nearer keyframe's (`modelStack()`), in full: unlike a single
+ * fold, a model's tree crease can lie at 0 between faces of different layers (a flap folded back
+ * over its neighbour by another crease), so the lift cannot ease with the angle. A crease's
+ * hairline shows once the paper has it: from the keyframe that first folds it, or past half way
+ * through the step that makes it (R7), never before.
+ */
+export function buildModel(model: Model, options: ModelBuildOptions = {}): ModelHandle {
+  const steps = model.steps.length
+  // The creases made by each keyframe, read once: set() asks for every hairline every frame
+  const made = model.keys.map((_, k) => creasesMade(model, k))
+  const b = build(model, options, (tree) => ({
+    end: steps,
+    pose: s => modelPose(model, s, tree),
+    lift: (c, _, s) => modelStack(model, s).step[c.id] ?? 0,
+    line: (id, s) => {
+      if (made[keyAt(model, s)]!.has(id)) return 1
+      const { step, x } = stepAt(model, s)
+      return x >= 0.5 && id in (model.steps[step]?.moves ?? {}) ? 1 : 0
+    },
+    perLine: true,
+  }))
+  return {
+    fold: model,
+    model,
+    steps,
+    style: b.style,
+    root: b.root,
+    groups: b.groups,
+    faces: b.faces,
+    backs: b.backs,
+    lines: b.lines,
+    get s() { return b.at },
+    get pose() { return b.pose },
+    get height() { return b.height },
+    set: b.set,
+    ready: b.ready,
+    get printRect() { return b.printRect },
+    dispose: b.dispose,
+  }
+}
+
+/** What the builder hands the two handles: the groups and meshes, the driver's time as `at`. */
+interface Built {
+  readonly style: Style
+  readonly root: Group
+  readonly groups: Map<FaceId, Group>
+  readonly faces: Map<FaceId, Mesh>
+  readonly backs: Map<FaceId, Mesh>
+  readonly lines: Map<string, LineSegments>
+  readonly at: number
+  readonly pose: Pose
+  readonly height: number
+  set(at: number): void
+  readonly ready: Promise<void>
+  readonly printRect: Rect | undefined
+  dispose(): void
+}
+
+/** The one builder: the fold's groups, meshes and hairlines, posed by the driver. */
+function build(fold: Fold, options: Omit<BuildOptions, 'schedule'>, driverFor: (tree: ReturnType<typeof hingeTree>) => Driver): Built {
+  const style = makeStyle(options.style as StyleOverrides | undefined)
   const tree = hingeTree(fold)
-  const stack = stackOrder(fold, tree)
+  const driver = driverFor(tree)
   const creases = new Map(treeCreases(fold).map(c => [c.id, c]))
   const H = fold.sheet.height
   const layer = options.layer ?? 0.5
@@ -348,7 +475,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   const lines = new Map<string, LineSegments>()
   const origins = new Map<FaceId, Vector3>()
   /** Per hinged face: its group, the rotation axis in scene axes, its crease, the uniforms to update. */
-  const hinged: { group: Group; axis: Vector3; crease: Crease; occ: PaperUniforms[]; step: number }[] = []
+  const hinged: { group: Group; axis: Vector3; crease: Crease; occ: PaperUniforms[] }[] = []
 
   for (const id of tree.order) {
     const face = faceOf(fold, id)
@@ -370,7 +497,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
       group.position.copy(origin).sub(parentOrigin)
       groups.get(parent)!.add(group)
       // D12: the flat-state layer, along the parent's normal, before the hinge turns (set per frame)
-      hinged.push({ group, axis: new Vector3(axis.dir[0], -axis.dir[1], 0).normalize(), crease, occ: [], step: (stack.step[hinge] ?? 0) * layer })
+      hinged.push({ group, axis: new Vector3(axis.dir[0], -axis.dir[1], 0).normalize(), crease, occ: [] })
     }
     groups.set(id, group)
     origins.set(id, origin)
@@ -412,14 +539,16 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   }
 
   // The hairlines: one per crease between two faces of the sheet (a hinge on the page is not a crease), in the parent's frame, just over the faces that meet there
+  // One material per color when every hairline fades together; one per crease when each shows on its own (a model's, made step by step)
   const lineMaterials = new Map<string, LineBasicMaterial>()
-  const lineMaterial = (color: string) => {
-    let m = lineMaterials.get(color)
+  const lineMaterial = (color: string, crease: CreaseId) => {
+    const key = driver.perLine ? crease : color
+    let m = lineMaterials.get(key)
     if (!m) {
       const c = parseColor(color)
       m = new LineBasicMaterial({ color: new Color().setRGB(...c.rgb), transparent: true, opacity: 0, depthWrite: false })
       m.userData.alpha = c.alpha
-      lineMaterials.set(color, m)
+      lineMaterials.set(key, m)
       materials.add(m)
     }
     return m
@@ -434,7 +563,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
       a.z = b.z = lift
       const g = new BufferGeometry().setFromPoints([a, b])
       geometries.add(g)
-      const line = new LineSegments(g, lineMaterial(onShade.has(c.id) ? style.crease.onShade : style.crease.onLit))
+      const line = new LineSegments(g, lineMaterial(onShade.has(c.id) ? style.crease.onShade : style.crease.onLit, c.id))
       line.name = `${c.id}:crease`
       line.renderOrder = 1
       groups.get(c.parent)!.add(line)
@@ -443,22 +572,23 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   }
 
   let t = 0
-  let current: Pose = pose(fold, 0, schedule)
+  let current: Pose = driver.pose(0)
   let height = 0
   const set = (at: number) => {
-    t = Math.min(1, Math.max(0, at))
-    current = pose(fold, t, schedule)
+    t = Math.min(driver.end, Math.max(0, at))
+    current = driver.pose(t)
     for (const h of hinged) {
       const angle = current.angles[h.crease.id] ?? 0
       h.group.quaternion.setFromAxisAngle(h.axis, -angle)
-      // The layer step in full where the faces stack (closed) and none where they only tile (flat): a depth buffer needs it only for overlap
-      h.group.position.z = h.crease.closed > 0 ? h.step * Math.min(1, Math.abs(angle) / h.crease.closed) : 0
+      // D12: the flat-state layer, along the parent's normal, before the hinge turns
+      h.group.position.z = driver.lift(h.crease, angle, t) * layer
       const o = occlusion(angle, style)
       for (const u of h.occ) u.oriOcc.value = o
     }
-    // The hairlines come in over the last third of the motion and stay (02, cue 6)
-    const fade = Math.min(1, Math.max(0, (t - 2 / 3) * 3))
-    for (const m of lineMaterials.values()) m.opacity = (m.userData.alpha as number) * fade
+    for (const [id, l] of lines) {
+      const m = l.material as LineBasicMaterial
+      m.opacity = (m.userData.alpha as number) * driver.line(id, t)
+    }
     height = 0
     for (const f of fold.faces) {
       if (f.page) continue
@@ -499,15 +629,13 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   }
 
   return {
-    fold,
     style,
-    schedule,
     root,
     groups,
     faces,
     backs,
     lines,
-    get t() { return t },
+    get at() { return t },
     get pose() { return current },
     get height() { return height },
     set,
@@ -524,7 +652,7 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
 }
 
 /** For a test or an inspector: the materials and geometries a handle owns, by walking its tree. */
-export function resources(handle: FoldHandle): { geometries: Set<BufferGeometry>; materials: Set<Material> } {
+export function resources(handle: Pick<FoldHandle, 'root'>): { geometries: Set<BufferGeometry>; materials: Set<Material> } {
   const geometries = new Set<BufferGeometry>(), materials = new Set<Material>()
   handle.root.traverse((o) => {
     const m = o as Mesh

@@ -1,16 +1,17 @@
 <script setup lang="ts">
-// Hash tabs, no router: #folds, #sequence, #page, #word, #look, #loader.
+// Hash tabs, no router: #folds, #sequence, #models, #page, #word, #look, #loader.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import FoldsPage from './pages/FoldsPage.vue'
 import SequencePage from './pages/SequencePage.vue'
+import ModelsPage from './pages/ModelsPage.vue'
 import PagePage from './pages/PagePage.vue'
 import WordPage from './pages/WordPage.vue'
 import LookPage from './pages/LookPage.vue'
 import LoaderPage from './pages/LoaderPage.vue'
 
-const PAGES = { folds: FoldsPage, sequence: SequencePage, page: PagePage, word: WordPage, look: LookPage, loader: LoaderPage } as const
+const PAGES = { folds: FoldsPage, sequence: SequencePage, models: ModelsPage, page: PagePage, word: WordPage, look: LookPage, loader: LoaderPage } as const
 type Key = keyof typeof PAGES
-const LABELS: Record<Key, string> = { folds: 'Folds', sequence: 'Sequence', page: 'Page', word: 'Word', look: 'Look', loader: 'Loader' }
+const LABELS: Record<Key, string> = { folds: 'Folds', sequence: 'Sequence', models: 'Models', page: 'Page', word: 'Word', look: 'Look', loader: 'Loader' }
 
 const read = (): Key => { const k = location.hash.slice(1); return k in PAGES ? k as Key : 'folds' }
 const current = ref<Key>(read())
