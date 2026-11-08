@@ -572,6 +572,59 @@ engine does not model strain: a named fold here is rigidly foldable by construct
 the two symmetric bases), so no face ever needs to bend, and the drivers can keep one transform
 per face.
 
+## 5. Loops: paper folding itself
+
+A loader wants paper that keeps folding until something is ready. Real paper cannot morph from one
+base into another: the waterbomb and the preliminary base share every crease line with opposite
+assignments (3.7, 3.8), and the only way from one to the other is to unfold to flat and fold again
+on the other assignment. Any frame between two bases that is not one of the two folds is a sheet
+that would have to stretch or tear. So a loop is a sequence of real folds on one sheet, each
+played whole, flat -> closed -> flat, and the next one begins from flat.
+
+**Which cycles read as paper folding itself.** The square bases do: the waterbomb, the
+preliminary and the blintz. The whole sheet takes part, every face moves, the sheet collapses to a
+compact closed form a fraction of its size and opens back, and nothing is left lying still as a
+background for the rest. The two closure-solved bases rise off the table as they collapse (their
+layers stack toward the visitor), so the shadow grows soft and long in the air and tightens at the
+landing: the shadow breathes, and that rise and fall is most of what makes the loop read as paper
+and not as a drawing changing shape. The blintz's four corners lift together and do the same in
+miniature. One-flap folds (`book`, `lift`) do not: a single flap swinging over a sheet that stays
+put reads as a page turning, not as paper folding itself, and looped it reads as a page being
+turned back and forth. They are the unfold's folds, not the loop's. The default loop is the three
+square bases in that order (`LOOP_BASES`); the bases need a square sheet.
+
+**The fold-in is the unfold played backwards.** A step's fold-in runs its unfold schedule from t =
+1 to t = 0, so the first crease undone by the unfold is the last one made by the fold-in, as a hand
+retraces its own folds (section 3, unfold order). One schedule serves both halves, and both halves
+take the step's duration (the schedule's total by default).
+
+**The hold at closed.** At t = 0 the paper rests a beat before it opens: `hold`, 240 ms by
+default. About a quarter of a second reads as the paper resting in its closed form, a fold
+finished and held; much longer reads as a stall, the motion stuck rather than paused. Zero is
+allowed and reads as a bounce off the closed state, which paper does not do (section 4, settle).
+
+**The gap at flat, and why steps meet at flat.** After the unfold the sheet lies flat for `gap`,
+160 ms by default, before the next step folds in. Steps meet at flat for two reasons:
+
+- Every step's flat state is the same sheet: the same square, every face at the identity, lying
+  in the page. A driver can swap one step's crease pattern for the next there and nothing on
+  screen changes. At any other moment the two steps' faces differ and a swap would show as a pop. The gap guarantees at least one flat frame is drawn before the swap.
+- A stop always has a flat moment within one step to land on. When the loader is told to stop it
+  does not fade the paper out or cut away mid-fold, both of which break the paper rule: it lets
+  the step it is in finish its move (`nextFlat`: the moment itself when the sheet is flat, else the
+  end of the playing step's unfold), lands flat, and the flat sheet is what remains. The wait is at
+  most one step.
+
+One step on the loop's clock, `d` the step's duration:
+
+    ms:  0             d             d+hold          2d+hold       2d+hold+gap
+         |   fold-in   |     hold     |    unfold     |     gap      |
+    t:   1 ----------> 0 ............ 0 ------------> 1 ............ 1
+         flat          closed         closed          flat           flat: the next step
+
+The step's length is `2d + hold + gap`; the loop's period is the sum of its steps' lengths, and the
+clock wraps past it to the first step again.
+
 ## Sources
 
 Read this session, 2026-11-02:

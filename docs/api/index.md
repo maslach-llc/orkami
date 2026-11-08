@@ -6,10 +6,10 @@ below it, and nothing below a driver touches the DOM.
 
 | entry | doc | what it is | needs |
 |---|---|---|---|
-| `orkami` | [core.md](core.md) | the fold model, the named folds, schedules, the pose, light and style, FOLD, the glyphs | nothing |
+| `orkami` | [core.md](core.md) | the fold model, the named folds, schedules, the pose, loops, light and style, FOLD, the glyphs | nothing |
 | `orkami/css` + `orkami/orkami.css` | [css.md](css.md) | the CSS driver: flaps in the DOM, the page's sheet paint | a DOM |
 | `orkami/three` | [three.md](three.md) | the WebGL driver: lit facets in three.js | `three` (optional peer) |
-| `orkami/vue` | [vue.md](vue.md) | `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>`, `<Mark>`, `useFold()` | `vue` (optional peer); `three` for `<Unfold3D>` |
+| `orkami/vue` | [vue.md](vue.md) | `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>`, `<Mark>`, `<FoldLoader>`, `useFold()` | `vue` (optional peer); `three` for `<Unfold3D>` |
 
 ## How the pieces meet
 
@@ -19,7 +19,10 @@ below it, and nothing below a driver touches the DOM.
   angle and transform; both drivers draw from it, so a fold looks the same in either.
 - The look is a `Style` (core): tones, crease hairlines, grain, shadows and the one light. Pass
   overrides to any driver or component; `DEFAULT_STYLE` is the neutral paper.
-- The decisions behind the model are D1 to D17 in [`../design/01-decisions.md`](../design/01-decisions.md);
+- A loop (D18) is a sequence of real folds on one sheet that meet at flat: the core's `loop` gives
+  the step and its t at a moment and the next flat moment, and the drivers' `mountLoop` and
+  `stage.loop` play it on their own clock with `set(t)`; a stop lands flat.
+- The decisions behind the model are D1 to D18 in [`../design/01-decisions.md`](../design/01-decisions.md);
   the words are defined in [`../design/00-vocabulary.md`](../design/00-vocabulary.md).
 
 ## Typing

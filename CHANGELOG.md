@@ -19,6 +19,24 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   flap until it folds; `v-unfold`, `<Unfold>` and `<Unfold3D>` take `still` (and `print`).
 - The playground's Folds page has a print switch (landed, image, content) and a still toggle over
   a bundled sample picture; the Page page prints it on its tall columns.
+- A fold that loops (D18): `loop(steps, { hold, gap })` in `src/core/loop.ts` plays real folds
+  on one sheet in turn, each folding in (its unfold backwards), holding at closed, unfolding and
+  resting flat, so the steps meet at flat; `at(ms)` gives the step and its t, `nextFlat(ms)` where
+  a stop lands. `loopSteps(size)` builds the default steps from the square bases (`LOOP_BASES`:
+  waterbomb, preliminary, blintz); `LOOP_HOLD` 240 ms, `LOOP_GAP` 160 ms.
+- `mountLoop(el, loop, options)` in the CSS driver plays a loop on `requestAnimationFrame` with
+  `set(t)`, swapping the mounted step's flaps at flat; `stop()` lets the playing step land flat
+  and resolves there.
+- `stage.loop(loop, options)` in the WebGL driver does the same, rebuilding the groups at each
+  flat swap, with the same `stop()` contract.
+- `<FoldLoader>` in the Vue adapter: a square of paper looping until `ready`, then landing flat
+  and emitting `done`; `role="status"`, client only, never flashes (`minMs`), renders nothing when
+  ready early (`skipWithin`), the flat square still under reduced motion. Its timing is the pure
+  `loaderPlan(readyAt, now, opts)`.
+- The playground has a Loader page: the default loop, a step picker, a `hold` slider, a ready
+  button that shows the stop landing flat, and the slow toggle.
+- The study's section 5 (loops: paper folding itself) and decision D18 (a loop is a sequence of
+  real folds that meet at flat; stop lands flat).
 
 ## [0.1.2] - 2026-11-05
 

@@ -39,7 +39,18 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 - `<Word text="MASLACH" />`: `wordSvg` as an inline `<svg>`, server rendered. Props `text`, `height` (px; the width follows, else it fills its container's width), `label`, `shadow` (the style's `shadows.on`), `grain` (the style's), `style`. Tones may be any CSS color: a hex is the gradient stop's attribute, anything else its `style`, so a `var()` follows the page's tokens (a theme, a palette) with no new markup.
 - `<Mark />`: a one-letter `Word` (`text` `'M'`), `height` 28, no shadow, for a header.
 
+## FoldLoader.vue: the loader
+
+- `<FoldLoader :ready="ready" @done="reveal" />`: a centered square of paper (`div.ori-loader`, `role="status"` with the `aria-label`, holding the `size` x `size` square `div.ori-loader-paper`, which wears the sheet paint as `.ori-paper` does and which the driver mounts the loop on) looping the core's `loop` on the CSS driver's `mountLoop` until `ready`, then stopping: it finishes the move it is in and lands flat (D18). Rendered only on the client: the server renders nothing for it, so with no JavaScript it never shows.
+- Props: `ready` (boolean, required), `steps` (`NamedFold[]`, `['waterbomb', 'preliminary', 'blintz']`), `size` (px, 96), `minMs` (600: once shown it shows at least this long, so it never flashes), `skipWithin` (150: if `ready` is true within this many ms of mounting it renders nothing at all; nothing is rendered before then either), `hold`, `gap` (passed to `loop`), `style` (`StyleOverrides`), `ariaLabel` (`'Loading'`).
+- Emits `done` once the paper lies flat after `ready`; at once when skipped or under reduced motion.
+- Reduced motion: the flat square, still, and `done` as soon as `ready` (D18). The flat sheet stays after `done`: the site removes the component or lets the flat sheet become the page's background.
+
+## loader.ts: the loader's timing
+
+- `loaderPlan(readyAt, now, { minMs, skipWithin })`: pure, what `<FoldLoader>` shows at `now`; times in ms since mount, `readyAt` undefined until ready. Returns `{ phase, next? }`: `'skip'` when `readyAt <= skipWithin`; `'wait'` (render nothing yet, `next` = `skipWithin`) while `now < skipWithin`; `'loop'` while not ready, or ready but before `max(readyAt, skipWithin + minMs)` (`next` = that moment); `'stop'` after.
+
 ## index.ts
 
-- `plugin` (also the default export): `app.use(plugin)` registers `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>` and `<Mark>`.
-- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `openWhenReady`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark` and the types above.
+- `plugin` (also the default export): `app.use(plugin)` registers `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>`, `<Mark>` and `<FoldLoader>`.
+- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `openWhenReady`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark`, `FoldLoader`, `loaderPlan` and the types above.

@@ -27,11 +27,12 @@ import {
   WebGLRenderer,
 } from 'three'
 import type { Fold } from '../core/fold.ts'
+import type { Loop } from '../core/loop.ts'
 import { pose } from '../core/pose.ts'
 import { together, type Schedule } from '../core/schedule.ts'
 import { penumbra, shadowAt, style as makeStyle, type Style, type StyleOverrides } from '../core/style.ts'
 import { contactMaterial, contactUniforms } from './contact.ts'
-import type { FoldHandle } from './scene.ts'
+import { buildFold, type BuildOptions, type FoldHandle } from './scene.ts'
 
 export interface StageOptions {
   /** The sheet's size in sheet units (px): what the canvas frames, plus the bleed. */
@@ -72,8 +73,29 @@ export interface Stage {
   play(handle: FoldHandle, duration?: number, onDone?: () => void, to?: 0 | 1): Promise<void>
   /** Stops a running play where it is. */
   stop(): void
-  /** Disposes the renderer (when the stage made it), the floor and the shadow map; the handles are their own. */
+  /** Plays a loop (D18): each step built with `buildFold`, driven by `set(t)` and rendered every frame, the groups rebuilt at the flat swap between steps. Starts at once. The loop's sheet must be the stage's. */
+  loop(loop: Loop, options?: StageLoopOptions): StageLoop
+  /** Disposes the renderer (when the stage made it), the floor and the shadow map, and destroys a running loop; the handles are their own. */
   dispose(): void
+}
+
+export interface StageLoopOptions extends BuildOptions {
+  /** The clock, ms; `performance.now` by default (a test passes a fake). */
+  now?: () => number
+}
+
+export interface StageLoop {
+  /** The index of the step on the stage. */
+  readonly step: number
+  /** The step's t: 1 flat, 0 closed. */
+  readonly t: number
+  /** The step's handle; undefined once destroyed. */
+  readonly handle: FoldHandle | undefined
+  readonly running: boolean
+  /** Lets the playing step run to the loop's next flat moment and resolves there, flat; at once when not running. */
+  stop(): Promise<void>
+  /** Cancels the loop, removes and disposes its handle. */
+  destroy(): void
 }
 
 /** The camera distance for a sheet of width w: 2.2 widths, never under 1000 (02, cue 4). */
@@ -249,6 +271,87 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
     })
   }
 
+  const loops = new Set<StageLoop>()
+  const playLoop = (lp: Loop, options: StageLoopOptions = {}): StageLoop => {
+    const { now: clock, ...build } = options
+    const time = clock ?? now
+    for (const s of lp.steps) {
+      if (s.fold.sheet.width !== W || s.fold.sheet.height !== H) throw new Error(`the loop's sheet is ${s.fold.sheet.width} x ${s.fold.sheet.height}, the stage's ${W} x ${H}`)
+    }
+    let step = 0
+    let handle: FoldHandle | undefined
+    let running = true
+    let stopAt: number | undefined
+    let stopped: (() => void) | undefined
+    let frame = 0
+    let wait: ReturnType<typeof setTimeout> | undefined
+    const show = (i: number) => {
+      if (handle) { handles.delete(handle); content.remove(handle.root); handle.dispose() }
+      step = i
+      const s = lp.steps[i]!
+      handle = buildFold(s.fold, { ...build, schedule: s.schedule })
+      handle.set(1)
+      handles.add(handle)
+      receive(handle)
+      content.add(handle.root)
+    }
+    const cancelFrame = () => {
+      if (frame && win?.cancelAnimationFrame) win.cancelAnimationFrame(frame)
+      if (wait) clearTimeout(wait)
+      frame = 0
+      wait = undefined
+    }
+    const next = (fn: () => void) => {
+      if (win?.requestAnimationFrame) frame = win.requestAnimationFrame(fn)
+      else wait = setTimeout(fn, 16)
+    }
+    const finish = () => {
+      cancelFrame()
+      running = false
+      stopAt = undefined
+      const done = stopped
+      stopped = undefined
+      done?.()
+    }
+    show(0)
+    render()
+    const t0 = time()
+    const tick = () => {
+      if (!handle) return
+      const ms = time() - t0
+      if (stopAt !== undefined && ms >= stopAt) { handle.set(1); render(); finish(); return }
+      const a = lp.at(ms)
+      if (a.step !== step) show(a.step)
+      handle!.set(a.t)
+      render()
+      next(tick)
+    }
+    if (reduced()) running = false
+    else next(tick)
+    const self: StageLoop = {
+      get step() { return step },
+      get t() { return handle?.t ?? 1 },
+      get handle() { return handle },
+      get running() { return running },
+      stop() {
+        if (!running) return Promise.resolve()
+        if (stopAt === undefined) stopAt = lp.nextFlat(time() - t0)
+        return new Promise<void>((resolve) => {
+          const prev = stopped
+          stopped = () => { prev?.(); resolve() }
+        })
+      },
+      destroy() {
+        finish()
+        loops.delete(self)
+        if (handle) { handles.delete(handle); content.remove(handle.root); handle.dispose() }
+        handle = undefined
+      },
+    }
+    loops.add(self)
+    return self
+  }
+
   return {
     renderer,
     scene,
@@ -268,8 +371,10 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
     render,
     play,
     stop,
+    loop: playLoop,
     dispose() {
       stop()
+      for (const l of [...loops]) l.destroy()
       for (const h of handles) content.remove(h.root)
       handles.clear()
       floor.geometry.dispose()

@@ -138,8 +138,9 @@
 }
 .is-landed .ori-creases { opacity: 1; transition: none; }
 
-/* 4. The paper: the page's sheet, placed so the element shows the paper under it */
-.ori-paper {
+/* 4. The paper: the page's sheet, placed so the element shows the paper under it (the loader's
+   square wears it under its own class, which the driver leaves alone when it swaps a step) */
+.ori-paper, .ori-loader-paper {
   background:
     var(--ori-grain-soft),
     var(--ori-sheet, none) var(--ori-sx, 0px) var(--ori-sy, 0px) / var(--ori-vw, 100vw) var(--ori-vh, 100vh) no-repeat,
@@ -177,3 +178,6 @@
   .ori-lifted { transform: none !important; transition: none !important; }
   .ori-creases { opacity: 1 !important; transition: none !important; }
 }
+
+/* The loader (FoldLoader, D18): a square of paper centered in its box */
+.ori-loader { display: grid; place-items: center; }
