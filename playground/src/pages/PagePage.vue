@@ -10,6 +10,8 @@ const columns = [
   { title: 'Fold', fold: (w: number, h: number) => accordion(w, h, 3, 'horizontal'), name: 'accordion' },
   { title: 'Open', fold: (w: number, h: number) => book(w, h, 'left'), name: 'book' },
 ]
+// The tall columns print the sample picture across their faces
+const picture = { image: `${import.meta.env.BASE_URL}sample/print.svg` }
 const steps = ['Score the line you will fold along.', 'Bring the edge over and line up the corners.', 'Press the crease flat from the middle out.', 'Unfold, turn the sheet, and fold the next line.']
 const cards = [
   { title: 'Blintz', fold: 'blintz' },
@@ -22,7 +24,7 @@ const cards = [
 <template>
   <section class="mock">
     <h1>Page</h1>
-    <p class="pg-muted">A page laid out in blocks, each folded the way its shape suits: the wide hero a cupboard, the three tall columns a cupboard, an accordion and a book, the list of steps an accordion, the square cards the four square folds. Scroll down; each block unfolds as it comes into view.</p>
+    <p class="pg-muted">A page laid out in blocks, each folded the way its shape suits: the wide hero a cupboard, the three tall columns a cupboard, an accordion and a book, each printed with the same sample picture so it folds up inside the paper and lies whole when the column lands, the list of steps an accordion, the square cards the four square folds. Scroll down; each block unfolds as it comes into view.</p>
 
     <header v-unfold.always="{ hinge: hero, delay: 200 }" class="pg-card mock-hero">
       <h2>Paper on a page</h2>
@@ -30,9 +32,11 @@ const cards = [
     </header>
 
     <div class="mock-cols">
-      <article v-for="(c, i) in columns" :key="c.title" v-unfold.always="{ hinge: c.fold, delay: 500 + i * 120 }" class="pg-card mock-col">
-        <h3>{{ c.title }}</h3>
-        <p>A tall column, folded as {{ c.name }}.</p>
+      <article v-for="(c, i) in columns" :key="c.title" v-unfold.always="{ hinge: c.fold, delay: 500 + i * 120, print: picture }" class="pg-card mock-col">
+        <div class="mock-col-label">
+          <h3>{{ c.title }}</h3>
+          <p>A tall column, printed with a picture and folded as {{ c.name }}.</p>
+        </div>
       </article>
     </div>
 
@@ -54,7 +58,9 @@ const cards = [
 .mock > p { margin: 0; }
 .mock-hero { min-height: 280px; padding: 48px; display: grid; align-content: center; }
 .mock-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 32px; }
-.mock-col { min-height: 380px; padding: 28px; }
+.mock-col { min-height: 380px; padding: 28px; display: grid; align-content: end; }
+.mock-col-label { background: var(--pg-card); color: var(--pg-card-ink); border: 1px solid var(--pg-line); padding: 12px 14px; }
+.mock-col-label p { margin: 0; }
 .mock-steps { margin: 0; padding: 32px 32px 32px 56px; display: grid; gap: 0; }
 .mock-steps li { min-height: 64px; display: flex; align-items: center; }
 .mock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 32px; margin-bottom: 40vh; }

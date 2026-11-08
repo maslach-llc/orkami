@@ -72,6 +72,15 @@ One line per export; the file each lives in is the heading.
 - `lambert(normal, light?)`: `max(0, L . N)`. `shade(normal, light?, ambient?, diffuse?)`: `k = ambient + diffuse * lambert`: 1.0035 for a flat face (the print within one 8-bit step), .35 edge-on, 1.2 facing the light; the back of a face uses `-N`.
 - `faceNormal(pts, matrix?)`: the unit normal after a transform, `(0, 0, 1)` when flat whatever the winding.
 
+## print.ts: a picture printed on the faces (D17)
+
+- `ImagePrint`: `{ image, fit?, position? }`: a picture on the sheet's front; `image` a url, `fit` a `PrintFit` (`'cover'` by default, `'contain'`, `'fill'`), `position` `[x, y]` fractions where a picture of another shape sits (`[0.5, 0.5]`, as CSS `background-position` percentages). `isImagePrint(p)`: whether a print mode is one.
+- `Rect`: `{ x, y, w, h }` in sheet px. `boundsOf(pts)`: a polygon's bounding box.
+- `printRect(sheet, image?, fit?, position?)`: where a picture of `image` size (`{ width, height }`) lies on the sheet; the sheet itself without a size (not decoded yet, an SVG with none) or for `'fill'`.
+- `facePrint(fold, faceId, rect?)`: a face's part of the picture for a driver drawing the face in a box of its bounds: `box`, `size` (the picture's) and `offset` (the picture's top left in the box: `rect` less the box's origin; `-box` for a picture lying on the sheet, so sheet point (0, 0) is the picture's corner). The CSS driver's `background-size` / `background-position` for each front.
+- `printUv(p, rect)`: a sheet point's texture coordinate in the picture, three's convention (u right, v up from the picture's bottom); outside [0, 1] is bare paper. The WebGL driver's UVs.
+- `printPolygon(fold, faceId, rect?)`: the face's part of the picture in the picture's own fractions (y down); the faces' parts tile the picture where it covers the sheet (tested on the blintz, cupboard and accordion).
+
 ## vertex.ts: flat-foldability
 
 - `interiorVertices(fold)`: crease endpoints not on the sheet's outline (works on cut sheets).

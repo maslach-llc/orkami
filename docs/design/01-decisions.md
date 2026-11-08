@@ -392,3 +392,32 @@ per resting logo exhausts it. The seed did the same and the owner approved the r
 
 **Rules out.** A canvas left mounted at rest; three.js in the server bundle or loaded before the
 first play; a fallback that differs from the landed pose (the fallback is what the paper lands on).
+
+## D17. A picture is printed on the faces in sheet coordinates; text stays 'landed' by default
+
+**Decision.** A fold carries a print mode. `'landed'`, the default, is D6's text block: the fronts
+show the host's background and the content shows once the paper lies flat. An image prints on
+every front in sheet coordinates: each face carries exactly the part of the picture lying under it
+when flat (the core's `facePrint` for the CSS driver's backgrounds, `printUv` for the WebGL
+driver's UVs), so the faces join into the whole picture at t = 1 with no seam, and at t = 0 the
+picture is folded inside the paper; the backs stay the sheet paint (the picture is on one side),
+and the tone, the grain and the crease darkening lie over the print as over plain paper. The
+CSS driver also prints `'content'`: an `aria-hidden` clone of the element on every front, at most
+12 faces (`CONTENT_FACES`), never on a lift; past that it prints `'landed'`. A picture is decoded
+before the paper moves (`ready`), and a still mount (`still: true`) lands at once with no
+transition and builds no flap until it is asked to fold.
+
+**Reason.** An illustration has to look drawn on the paper, so it must be on the faces the whole
+way; a picture faded in at the landing breaks the paper rule. Text is different: printed on a
+folded block, it shows half-read, mirrored by the folds and clipped at the creases, and a folded
+text block reads best as the page's own background that opens into a card, so `'landed'` stays
+the default. Clones of the content cost one copy of the element's DOM per face and are a snapshot
+(nothing reactive in them), so they are opt-in and capped where the copies would cost more than
+they show. A returning visitor should get the page flat, and a directive that can say `still`
+lets a site keep one template for both visits. This amends D6's "no content in the WebGL driver":
+a picture is a texture, not the DOM, so both drivers print it; DOM content stays the CSS
+driver's.
+
+**Rules out.** A picture that fades in or appears at the landing; a picture on the backs; a
+print placed by a driver's own arithmetic (it is the core's); a fold that starts before its
+picture is decoded; content cloned onto an unbounded number of faces.

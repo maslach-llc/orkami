@@ -13,7 +13,9 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 - `vUnfold`: `v-unfold` on a block: it lies folded in the page and unfolds when it scrolls into view (an `IntersectionObserver`, 5 percent in, 8 percent above the fold). A block already on screen at hydration is left flat unless `.always`. Under reduced motion the directive does nothing.
   - `v-unfold` (no value): a lift on the top edge. `v-unfold="'left'"` (`top`, `bottom`, `right`): a lift on that edge, folded over, paper back first. `v-unfold="'blintz'"`: any `NamedFold` by name. `v-unfold="{ hinge: fold }"`: a `Fold` or a factory `(w, h) => Fold`.
   - `.stagger`: each child is its own fold, `step` ms apart (90 by default). `.refold`: folds back (instantly) once more than a screen away and unfolds again on the way back. `.always`: folds even a block on screen at hydration.
-  - `UnfoldOptions`: `hinge`, `step`, `delay` (ms before the first starts), `open` (given, opens on it turning true instead of on scroll), `style` (`StyleOverrides`), `mount` (the driver's other `MountOptions`).
+  - `UnfoldOptions`: `hinge`, `step`, `delay` (ms before the first starts), `open` (given, opens on it turning true instead of on scroll), `style` (`StyleOverrides`), `print` (the driver's `Print`: `'landed'`, `'content'` or `{ image }`, D17), `still` (mounted flat with no motion and never opened: a block already seen, keeping the directive in the template), `mount` (the driver's other `MountOptions`).
+  - Printing: the opening waits for every handle's `ready` (the picture decoded); a picture that fails is reported with `console.error` and the paper opens without it. A printed picture is the driver's to paint, so where the directive would otherwise leave the block untouched (reduced motion, on screen at hydration without `.always`) it mounts it `still` instead.
+- `openWhenReady(handles)`: opens the handles once their prints are ready, as the directive does.
 - `Hinge`: `'lift' | Edge | NamedFold`. `FoldSpec`: `Hinge | Fold | ((w, h) => Fold)`. `UnfoldValue`: `Hinge | UnfoldOptions | undefined`.
 - `foldFor(spec)`: the factory `mount` takes for a hinge name, a `Fold` or a factory; throws on an unknown name. `unfoldOptions(value)`: the value normalized to `UnfoldOptions`.
 - `handlesOf(el)`: the driver `Handle`s behind a bound element (one per staggered child), for a test or an inspector.
@@ -21,15 +23,15 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 ## useFold.ts: the composable
 
 - `useFold(el, fold, options?)`: `el` a template ref or element, `fold` a `FoldSpec` (or a ref to one), `options` the driver's `MountOptions`. Mounts on `onMounted`, destroys on unmount.
-- `UseFold`: `handle` (a shallow ref to the `Handle`, null before mount and after unmount), `t`, `state`, `landed` (refs kept in step with the handle), `open()`, `close()`, `set(t)`.
+- `UseFold`: `handle` (a shallow ref to the `Handle`, null before mount and after unmount), `t`, `state`, `landed` (refs kept in step with the handle), `open()` (waits for the handle's `ready` first), `close()`, `set(t)`.
 
 ## Unfold.vue: the component
 
-- `<Unfold fold="blintz" :open="ready"><Card/></Unfold>`: a wrapper that lies folded as `fold` (a `FoldSpec`; `'lift'` by default) with the slot as the content printed on the root face. `open` given: opens on true and closes on false; unset: opens when scrolled into view. `tag` is the wrapper element (`div`), `style` the style overrides, `options` the driver's `MountOptions`. Emits `landed` once the paper lies flat. Exposes `handle`, `t`, `state`, `landed`, `open`, `close`, `set`.
+- `<Unfold fold="blintz" :open="ready"><Card/></Unfold>`: a wrapper that lies folded as `fold` (a `FoldSpec`; `'lift'` by default) with the slot as the content printed on the root face. `open` given: opens on true and closes on false; unset: opens when scrolled into view. `tag` is the wrapper element (`div`), `style` the style overrides, `print` the driver's `Print` ('landed' by default), `still` (mounted flat with no motion; `open` and scrolling are ignored), `options` the driver's `MountOptions`; `print` and `still` are read at mount (key the component to change them). Emits `landed` once the paper lies flat. Exposes `handle`, `t`, `state`, `landed`, `open`, `close`, `set`.
 
 ## Unfold3D.vue: the WebGL component
 
-- `<Unfold3D fold="MASLACH" />`: the fold unfolding as lit paper (`orkami/three`), then lying flat as its fallback. `fold` is a `Fold`, a `NamedFold` key (sized to the component's box) or a word for the glyphs (`wordFold`). Props: `palette` (the driver's `Palette` or `PaintFn`), `style`, `delay` (ms before an autoplay, 200), `duration` (ms, the schedule's length by default), `schedule`, `autoplay` (true), `label` (the accessible name; empty hides it). Emits `done` at the landing. Exposes `play()`, `show()` (flat, no motion), `playing`, `open`.
+- `<Unfold3D fold="MASLACH" />`: the fold unfolding as lit paper (`orkami/three`), then lying flat as its fallback. `fold` is a `Fold`, a `NamedFold` key (sized to the component's box) or a word for the glyphs (`wordFold`). Props: `palette` (the driver's `Palette` or `PaintFn`), `style`, `delay` (ms before an autoplay, 200), `duration` (ms, the schedule's length by default), `schedule`, `autoplay` (true), `label` (the accessible name; empty hides it), `print` (an `ImagePrint`: the picture across the fronts, the play waiting for it to load; its flat fallback is an `<img>` of it fitted as the paper lands it, unless the `flat` slot gives one), `still` (the flat fallback with no motion; `play()` still plays). Emits `done` at the landing. Exposes `play()`, `show()` (flat, no motion), `playing`, `open`.
 - `<template #flat>`: the flat fallback, the `<Word>` of the word when `fold` is one. The canvas exists only while the unfold plays (D16): it lies over the fallback with the bleed `bleedFor` gives, the fallback hidden under it, and at the landing it fades out over the fallback in 300 ms and the WebGL context is freed. Reduced motion, no WebGL (the renderer throws) and no JavaScript (a `<noscript>` style) show the fallback. three.js is imported on the first play. The style's and palette's colors are resolved at the box when it plays (`resolveStyle`), so tones given as CSS tokens paint the lit paper as they compute then; the drawing buffer is the canvas's rendered size, so a box scaled by a transform (a lockup growing into a hero) draws sharp.
 
 ## Word.vue and Mark.vue: the flat glyphs
@@ -40,4 +42,4 @@ is flat and the fold is applied at hydration. A bound element must not clip (ork
 ## index.ts
 
 - `plugin` (also the default export): `app.use(plugin)` registers `v-unfold`, `<Unfold>`, `<Unfold3D>`, `<Word>` and `<Mark>`.
-- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark` and the types above.
+- Re-exports `vUnfold`, `foldFor`, `handlesOf`, `openWhenReady`, `unfoldOptions`, `useFold`, `Unfold`, `Unfold3D`, `Word`, `Mark` and the types above.

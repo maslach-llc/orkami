@@ -15,11 +15,22 @@
 // (a word, D13) there is no content face: every face is a flap, no ground is drawn (the page is
 // the ground) and the element's own content (the flat word) shows at the landing. The other faces' fronts show the
 // element's background; the ground under them is the sheet until the paper lands, and at the
-// landing the flaps step aside so the element's content shows flat (doc 06 prints content on
-// every face). A face with a `slot` (a glyph) is painted paper: its print is the style's tone.
+// landing the flaps step aside so the element's content shows flat. A face with a `slot` (a
+// glyph) is painted paper: its print is the style's tone.
+//
+// Printing (D17, `options.print`): 'landed' is the above, the content shown once flat (the default,
+// for text: its folded state stays the page's background). An image prints on every face's front
+// in sheet coordinates (`facePrint` from the core), so each face carries the part of the picture
+// that lies under it flat and the faces join into the whole at t = 1; the landed host wears the
+// same picture. 'content' prints an `aria-hidden` clone of the element on every front, capped at
+// CONTENT_FACES faces. Backs stay the sheet paint either way: the picture is on one side only.
+//
+// A still mount (`options.still`) lands at once with no transition and builds no flap until the
+// handle is asked to fold (`close()`, `set(t < 1)`): a returning visitor's page, flat.
 import { compose, invert, toCss, type Affine, type Pt } from '../core/affine.ts'
 import { centroid, face as faceOf, seamOf, sign, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
 import { flatBack, hingeAxis, pose } from '../core/pose.ts'
+import { facePrint, isImagePrint, printRect, type ImagePrint, type Rect } from '../core/print.ts'
 import { together, transitionable, type Schedule } from '../core/schedule.ts'
 import { rotation, transform } from '../core/space.ts'
 import { stackOrder } from '../core/stack.ts'
@@ -44,7 +55,17 @@ export interface MountOptions {
   sheet?: boolean | SheetMode
   /** The perspective distance in px; 2.2 times the width, never under 1000, by default. */
   perspective?: number
+  /** What is printed on the faces' fronts (D17): 'landed' (the default: the element's content shows once flat), an image in sheet coordinates, or 'content' (a clone of the element on every front, at most CONTENT_FACES faces, else 'landed'). */
+  print?: Print
+  /** Mounts flat and landed with no motion, building no flap until the handle folds (`close()`, `set(t < 1)`). */
+  still?: boolean
 }
+
+/** A print mode (D17). */
+export type Print = 'landed' | 'content' | ImagePrint
+
+/** The most faces 'content' clones the element onto; a fold with more prints 'landed'. */
+export const CONTENT_FACES = 12
 
 export type State = 'closed' | 'opening' | 'open' | 'closing' | 'still'
 
@@ -67,6 +88,10 @@ export interface Handle {
   destroy(): void
   /** Resolves the first time the paper lies flat. */
   readonly landed: Promise<void>
+  /** Resolves once the print is ready to fold (an image decoded and placed); at once for 'landed' and 'content'. Rejects when the image cannot be decoded. */
+  readonly ready: Promise<void>
+  /** The print in use: 'content' falls back to 'landed' past CONTENT_FACES faces or on a lift (whose element is its own print). */
+  readonly print: 'landed' | 'content' | 'image'
 }
 
 const SVG = 'http://www.w3.org/2000/svg'
@@ -211,6 +236,18 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   const lifted = onPage && hung === 1
   const contentId: FaceId | undefined = lifted ? creases.get(tree.children[fold.root]![0]!)!.child : onPage ? undefined : fold.root
 
+  // --- the print (D17). 'content' is cloned before the driver touches the element; a lift's
+  // element is its own print already, and past CONTENT_FACES faces the clones cost more than
+  // they show, so both print 'landed'
+  const image = isImagePrint(options.print) ? options.print : undefined
+  const printMode: Handle['print'] = image ? 'image'
+    : options.print === 'content' && !lifted && fold.faces.filter(f => !f.page).length <= CONTENT_FACES ? 'content' : 'landed'
+  const template = printMode === 'content' ? contentTemplate(el, W, H) : undefined
+  let rect: Rect = printRect(fold.sheet)
+  const imageUrl = image ? `url("${image.image.replace(/"/g, '%22')}")` : ''
+  /** The front sides wearing the image, with their faces. */
+  const printed: { side: HTMLElement; face: Face }[] = []
+
   // --- the host
   const hostProps: string[] = []
   const setHost = (name: string, value: string) => { el.style.setProperty(name, value); hostProps.push(name) }
@@ -297,8 +334,14 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
         const g = creaseGradient(face, seam, style)
         layers.push(gradient(g.from, g.to, g.stops.map(s => ({ offset: s.offset, alpha: num(s.opacity) })), W, H))
       }
+    } else if (printMode === 'image') {
+      // The picture on the side itself, its part placed from the core's facePrint (applyPrint);
+      // under it the host's paper color where a contained picture leaves paper bare
+      side.style.backgroundColor = bare || !cs ? 'var(--ori-paper, #f3f4f1)' : cs.backgroundColor
+      printed.push({ side, face })
     } else {
       background(paper)
+      if (template) paper.append(template.cloneNode(true) as HTMLElement)
     }
     if (crease && (crease.assignment === 'V') === !back) {
       // The crease going into shadow as the fold closes (02, cue 8, the dynamic part): on the
@@ -319,6 +362,25 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     }
     return side
   }
+
+  // --- the creases that stay: drawn first, so a still mount has them with no flap built
+  const svg = doc.createElementNS(SVG, 'svg') as unknown as HTMLElement
+  svg.setAttribute('class', 'ori-creases')
+  svg.setAttribute('viewBox', `0 0 ${num(W)} ${num(H)}`)
+  svg.setAttribute('preserveAspectRatio', 'none')
+  for (const c of creases.values()) {
+    if (faceOf(fold, c.parent).page && c.child !== contentId) continue
+    const line = doc.createElementNS(SVG, 'line')
+    line.setAttribute('x1', num(c.a[0])); line.setAttribute('y1', num(c.a[1]))
+    line.setAttribute('x2', num(c.b[0])); line.setAttribute('y2', num(c.b[1]))
+    line.setAttribute('stroke', style.crease.onLit)
+    line.setAttribute('stroke-width', String(style.crease.width))
+    line.setAttribute('vector-effect', 'non-scaling-stroke')
+    svg.append(line)
+  }
+  container.append(svg)
+  /** Appends to a flap, or to the fold layer under the creases. */
+  const put = (into: HTMLElement, node: HTMLElement) => { if (into === container) container.insertBefore(node, svg); else into.append(node) }
 
   // --- the flaps, nested by parent
   const flaps: Flap[] = []
@@ -343,7 +405,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
       const shape = doc.createElement('div')
       shape.className = 'ori-shadow-shape'
       wrap.append(shape)
-      into.append(wrap)
+      put(into, wrap)
       return { wrap, shape }
     })
   }
@@ -359,45 +421,49 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     target.style.setProperty('--ori-dur', `${num(entry.duration * total)}ms`)
   }
 
-  for (const id of tree.order) {
-    const face = faceOf(fold, id)
-    if (face.page || id === fold.root) continue
-    const crease = creases.get(tree.hinge[id]!)!
-    const axis = axisOf(crease)
-    if (id === contentId) {
-      // The element is the flap: it turns on the hinge about its own center's perspective
-      el.classList.add('ori-lifted')
-      setHost('--ori-p', px(P))
-      setHost('--ori-hx', px(axis.point[0] - W / 2))
-      setHost('--ori-hy', px(axis.point[1] - H / 2))
-      setHost('transform-origin', `${px(W / 2)} ${px(H / 2)}`)
-      hingeProps(el, crease, axis)
-      hostProps.push('--ori-ux', '--ori-uy', '--ori-step', '--ori-closed', '--ori-a', '--ori-start', '--ori-end', '--ori-dur')
-      if (bare) el.classList.add('ori-paper')
-      const shade = doc.createElement('div')
-      shade.className = 'ori-shade'
-      container.append(shade)
-      container.append(sideFor(face, crease, true))
-      flaps.push({ face, crease, el, axis, shadows: shadowsFor(container, crease, axis) })
-      flapEls.set(id, container)
-      continue
+  // --- the paper: the flaps, the ground and the root front. Built at mount, or for a still
+  // mount the first time the handle folds
+  let built = false
+  const build = () => {
+    built = true
+    for (const id of tree.order) {
+      const face = faceOf(fold, id)
+      if (face.page || id === fold.root) continue
+      const crease = creases.get(tree.hinge[id]!)!
+      const axis = axisOf(crease)
+      if (id === contentId) {
+        // The element is the flap: it turns on the hinge about its own center's perspective
+        el.classList.add('ori-lifted')
+        setHost('--ori-p', px(P))
+        setHost('--ori-hx', px(axis.point[0] - W / 2))
+        setHost('--ori-hy', px(axis.point[1] - H / 2))
+        setHost('transform-origin', `${px(W / 2)} ${px(H / 2)}`)
+        hingeProps(el, crease, axis)
+        hostProps.push('--ori-ux', '--ori-uy', '--ori-step', '--ori-closed', '--ori-a', '--ori-start', '--ori-end', '--ori-dur')
+        if (bare) el.classList.add('ori-paper')
+        const shade = doc.createElement('div')
+        shade.className = 'ori-shade'
+        put(container, shade)
+        put(container, sideFor(face, crease, true))
+        flaps.push({ face, crease, el, axis, shadows: shadowsFor(container, crease, axis) })
+        flapEls.set(id, container)
+        continue
+      }
+      const flap = doc.createElement('div')
+      flap.className = 'ori-flap'
+      flap.dataset.face = id
+      flap.style.transformOrigin = `${px(axis.point[0])} ${px(axis.point[1])}`
+      hingeProps(flap, crease, axis)
+      const shadows = shadowsFor(flap, crease, axis)
+      flap.append(sideFor(face, crease, false), sideFor(face, crease, true))
+      put(parentEl(id), flap)
+      flapEls.set(id, flap)
+      flaps.push({ face, crease, el: flap, axis, shadows })
     }
-    const flap = doc.createElement('div')
-    flap.className = 'ori-flap'
-    flap.dataset.face = id
-    flap.style.transformOrigin = `${px(axis.point[0])} ${px(axis.point[1])}`
-    hingeProps(flap, crease, axis)
-    const shadows = shadowsFor(flap, crease, axis)
-    flap.append(sideFor(face, crease, false), sideFor(face, crease, true))
-    parentEl(id).append(flap)
-    flapEls.set(id, flap)
-    flaps.push({ face, crease, el: flap, axis, shadows })
-  }
 
-  // --- the ground: the sheet where a face is not yet, the root's own front over the element
-  // (its content shows at the landing), and the creases that stay
-  const grounds: HTMLElement[] = []
-  if (!onPage) {
+    // The ground: the sheet where a face is not yet, and the root's own front over the element
+    // (its content shows at the landing)
+    if (onPage) return
     // A face joined to the content face by flat creases only never leaves the sheet: its flap
     // lies exactly where its ground would (layer step 0), and the two would fight for depth, the
     // ground winning (the waterbomb's T2 drew as a hole). It needs no ground: its front is the sheet.
@@ -407,6 +473,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
       if (h == null || p == null) return false
       return creases.get(h)!.closed === 0 && stays(p)
     }
+    const grounds: HTMLElement[] = []
     for (const face of fold.faces) {
       if (face.id === contentId || face.page || stays(face.id)) continue
       const g = doc.createElement('div')
@@ -418,33 +485,72 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     root.classList.add('ori-root')
     container.prepend(...grounds, root)
   }
-  /** While the paper is folded the element's own box paints nothing: the root front and the ground are it. */
+
+  // --- the print's placement: each printed side its part of the picture (facePrint), and the
+  // landed host the whole of it, the grain multiplied over both as over plain paper
+  const PRINT_PROPS = ['background-image', 'background-size', 'background-position', 'background-repeat', 'background-blend-mode']
+  let hostPrinted = false
+  let destroyed = false
+  const paintHost = () => {
+    if (!image || destroyed) return
+    hostPrinted = true
+    el.style.setProperty('background-image', `var(--ori-grain), ${imageUrl}`)
+    el.style.setProperty('background-size', `96px 96px, ${px(rect.w)} ${px(rect.h)}`)
+    el.style.setProperty('background-position', `0px 0px, ${px(rect.x)} ${px(rect.y)}`)
+    el.style.setProperty('background-repeat', 'repeat, no-repeat')
+    el.style.setProperty('background-blend-mode', 'multiply, normal')
+  }
+  const unpaintHost = () => {
+    if (!hostPrinted) return
+    hostPrinted = false
+    for (const name of PRINT_PROPS) el.style.removeProperty(name)
+  }
+  const applyPrint = () => {
+    if (destroyed) return
+    for (const { side, face } of printed) {
+      const p = facePrint(fold, face.id, rect)
+      side.style.backgroundImage = `var(--ori-grain), ${imageUrl}`
+      side.style.backgroundSize = `96px 96px, ${px(p.size[0])} ${px(p.size[1])}`
+      side.style.backgroundPosition = `${px(-p.box.x)} ${px(-p.box.y)}, ${px(p.offset[0])} ${px(p.offset[1])}`
+      side.style.backgroundRepeat = 'repeat, no-repeat'
+      side.style.backgroundBlendMode = 'multiply, normal'
+    }
+    if (hostPrinted) paintHost()
+  }
+
+  /** While the paper is folded the element's own box paints nothing: the root front and the ground are it. Landed, it is the element again, wearing the picture when one is printed. */
   const cover = (on: boolean) => {
     if (onPage) return
     if (on) {
+      unpaintHost()
       el.style.setProperty('background-color', 'transparent')
       el.style.setProperty('background-image', 'none')
     } else {
       el.style.removeProperty('background-color')
       el.style.removeProperty('background-image')
+      paintHost()
     }
   }
-  const svg = doc.createElementNS(SVG, 'svg') as unknown as HTMLElement
-  svg.setAttribute('class', 'ori-creases')
-  svg.setAttribute('viewBox', `0 0 ${num(W)} ${num(H)}`)
-  svg.setAttribute('preserveAspectRatio', 'none')
-  for (const c of creases.values()) {
-    if (faceOf(fold, c.parent).page && c.child !== contentId) continue
-    const line = doc.createElementNS(SVG, 'line')
-    line.setAttribute('x1', num(c.a[0])); line.setAttribute('y1', num(c.a[1]))
-    line.setAttribute('x2', num(c.b[0])); line.setAttribute('y2', num(c.b[1]))
-    line.setAttribute('stroke', style.crease.onLit)
-    line.setAttribute('stroke-width', String(style.crease.width))
-    line.setAttribute('vector-effect', 'non-scaling-stroke')
-    svg.append(line)
-  }
-  container.append(svg)
+  if (!options.still) build()
+  // A lift's element is its own front: it wears the picture the whole way
+  if (lifted) paintHost()
+  applyPrint()
   el.append(container)
+
+  // The picture decoded before the paper moves: its natural size places it (cover, contain)
+  let ready: Promise<void> = Promise.resolve()
+  if (image) {
+    const img = doc.createElement('img')
+    img.decoding = 'async'
+    img.src = image.image
+    const decoded = typeof img.decode === 'function'
+      ? img.decode()
+      : new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error(`orkami: the print ${image.image} did not load`)) })
+    ready = decoded.then(() => {
+      rect = printRect(fold.sheet, { width: img.naturalWidth, height: img.naturalHeight }, image.fit, image.position)
+      applyPrint()
+    })
+  }
 
   const untrack = options.sheet === false ? () => {} : trackSheet(el, typeof options.sheet === 'string' ? options.sheet : undefined)
 
@@ -554,9 +660,18 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
 
   const scrub = (on: boolean) => el.classList.toggle('ori-scrub', on)
 
+  /** A still mount builds its paper the first time it folds, lying flat to start from. */
+  const ensure = () => {
+    if (built) return
+    build()
+    applyPrint()
+    set(1)
+  }
+
   const set = (at: number) => {
     cancel()
     const v = Math.min(1, Math.max(0, at))
+    if (v < 1) ensure()
     scrub(true)
     flush()
     t = v
@@ -589,6 +704,7 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
   const close = (): Promise<void> => {
     if (reduced) { set(0); return Promise.resolve() }
     if (state === 'closed') return Promise.resolve()
+    ensure()
     state = 'closing'
     if (drive === 'css') {
       scrub(false)
@@ -606,13 +722,15 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     pending?.resolve()
     untrack()
     container.remove()
+    destroyed = true
     cover(false)
+    unpaintHost()
     for (const name of new Set(hostProps)) el.style.removeProperty(name)
     el.classList.remove('ori-host', 'ori-lifted', 'ori-paper', 'ori-scrub', 'is-open', 'is-landed')
   }
 
-  // The initial state, with no motion
-  set(reduced ? 1 : options.at ?? 0)
+  // The initial state, with no motion: a still mount lands at once
+  set(reduced || options.still ? 1 : options.at ?? 0)
 
   return {
     el,
@@ -627,7 +745,38 @@ export function mount(el: HTMLElement, foldOrFactory: Fold | ((w: number, h: num
     set,
     destroy,
     landed: firstLanding.promise,
+    ready,
+    print: printMode,
   }
+}
+
+/**
+ * The element as the print of 'content': a deep clone made before the driver touches it, with
+ * no ids (they would repeat), hidden from assistive tech and from focus (the real content stays in
+ * the DOM for them), laid out at the sheet's size inside a face's sheet-sized paper. Its own
+ * background and shadow are dropped: the face's paper is under it. A snapshot: content that
+ * changes after the mount shows changed at the landing.
+ */
+function contentTemplate(el: HTMLElement, W: number, H: number): HTMLElement {
+  const c = el.cloneNode(true) as HTMLElement
+  c.removeAttribute('id')
+  for (const n of Array.from(c.querySelectorAll('[id]'))) n.removeAttribute('id')
+  for (const name of Array.from(c.classList)) if (name.startsWith('ori-') || name === 'is-open' || name === 'is-landed') c.classList.remove(name)
+  c.classList.add('ori-print-content')
+  c.setAttribute('aria-hidden', 'true')
+  c.setAttribute('inert', '')
+  const s = c.style
+  s.position = 'absolute'
+  s.left = '0px'
+  s.top = '0px'
+  s.width = px(W)
+  s.height = px(H)
+  s.margin = '0px'
+  s.boxSizing = 'border-box'
+  s.background = 'none'
+  s.boxShadow = 'none'
+  s.transform = 'none'
+  return c
 }
 
 /** The polygon a side is clipped to, for a check or a test: the face's points, mirrored for the back. */

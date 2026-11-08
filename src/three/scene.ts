@@ -34,13 +34,15 @@ import {
   RGBAFormat,
   Shape,
   ShapeGeometry,
+  Texture,
+  TextureLoader,
   Vector2,
   Vector3,
-  type Texture,
 } from 'three'
 import type { Pt } from '../core/affine.ts'
 import { centroid, face as faceOf, seamOf, shadeSeams, treeCreases, type Crease, type Face, type FaceId, type Fold } from '../core/fold.ts'
 import { hingeAxis, pose, type Pose } from '../core/pose.ts'
+import { printRect, printUv, type PrintFit, type Rect } from '../core/print.ts'
 import { together, type Schedule } from '../core/schedule.ts'
 import { stackOrder } from '../core/stack.ts'
 import { creaseGradient, faceHeight, occlusion, parseHex, slotTone, style as makeStyle, type Style, type StyleOverrides, type Tone } from '../core/style.ts'
@@ -71,6 +73,15 @@ export interface BuildOptions {
   shadows?: boolean
   /** The time to build at: 0 closed (the default), 1 flat. */
   at?: number
+  /** What is printed on the fronts (D17): 'landed' (the default: the style's tones) or a picture in sheet coordinates, a url (loaded with `TextureLoader`) or a `Texture` whose image is loaded (used as given, never disposed). Glyph faces (with a slot) keep their tones. */
+  print?: 'landed' | TexturePrint
+}
+
+/** A picture printed on the sheet's fronts: `fit` and `position` as the core's `printRect`. */
+export interface TexturePrint {
+  image: string | Texture
+  fit?: PrintFit
+  position?: [number, number]
 }
 
 export interface FoldHandle {
@@ -96,6 +107,10 @@ export interface FoldHandle {
   set(t: number): void
   /** Disposes every geometry, material and texture the handle made and detaches the root. */
   dispose(): void
+  /** Resolves once the print is ready (the picture loaded and its UVs placed); at once with no picture. Rejects when the picture cannot be loaded. */
+  readonly ready: Promise<void>
+  /** Where the picture lies on the sheet (sheet px), the sheet itself until it has loaded. */
+  readonly printRect: Rect | undefined
 }
 
 /** The height (sheet units) above which a face casts a shadow: past its own layer step, so a face lying in the sheet casts none. */
@@ -181,23 +196,49 @@ interface PaperUniforms {
   oriOcc: { value: number }
 }
 
-/** A Lambert material with the paper's two crease darkenings multiplied into the diffuse color, after the vertex colors and the grain. */
-function paperMaterial(side: typeof FrontSide | typeof BackSide, map: Texture | null, uniforms: PaperUniforms): MeshLambertMaterial {
+/** The uniforms of a printed front (D17): the picture, sampled at the face's UVs (paper outside [0, 1]), and the grain, sampled from the same UVs since the picture takes the material's one `map`. */
+interface PrintUniforms {
+  oriPrint: { value: Texture }
+  oriGrainTex: { value: Texture | null }
+  /** Grain tiles across the picture's rect: its size over the tile's. */
+  oriGrainScale: { value: Vector2 }
+}
+
+/** A Lambert material with the paper's two crease darkenings multiplied into the diffuse color, after the vertex colors and the grain; on a printed front, the picture too. */
+function paperMaterial(side: typeof FrontSide | typeof BackSide, map: Texture | null, uniforms: PaperUniforms, print?: PrintUniforms): MeshLambertMaterial {
   const m = new MeshLambertMaterial({ color: 0xffffff, vertexColors: true, flatShading: true, side, map })
   m.shadowSide = DoubleSide
   m.userData.ori = uniforms
+  if (print) {
+    m.userData.oriPrint = print
+    m.defines = { ORI_PRINT: '', ...(print.oriGrainTex.value ? { ORI_GRAIN: '' } : {}) }
+  }
   m.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms)
+    Object.assign(shader.uniforms, uniforms, print ?? {})
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vOriSheet;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvOriSheet = position.xy;')
+      .replace('#include <common>', '#include <common>\nvarying vec2 vOriSheet;\nvarying vec2 vOriUv;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvOriSheet = position.xy;\nvOriUv = uv;')
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec2 vOriSheet;
+varying vec2 vOriUv;
 uniform vec2 oriGradFrom; uniform vec2 oriGradTo; uniform vec4 oriGrad;
 uniform vec2 oriOccFrom; uniform vec2 oriOccTo; uniform float oriOcc;
+#ifdef ORI_PRINT
+uniform sampler2D oriPrint;
+uniform sampler2D oriGrainTex; uniform vec2 oriGrainScale;
+#endif
 float oriAlong(vec2 a, vec2 b) { vec2 d = b - a; return clamp(dot(vOriSheet - a, d) / max(dot(d, d), 1e-6), 0.0, 1.0); }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
+#ifdef ORI_PRINT
+{
+  vec2 pu = vOriUv;
+  if (pu.x >= 0.0 && pu.x <= 1.0 && pu.y >= 0.0 && pu.y <= 1.0) diffuseColor.rgb *= texture2D(oriPrint, pu).rgb;
+#ifdef ORI_GRAIN
+  diffuseColor.rgb *= texture2D(oriGrainTex, pu * oriGrainScale).rgb;
+#endif
+}
+#endif
 {
   float s = oriAlong(oriGradFrom, oriGradTo);
   float g = s < oriGrad.w ? mix(oriGrad.x, oriGrad.y, s / max(oriGrad.w, 1e-6)) : mix(oriGrad.y, oriGrad.z, (s - oriGrad.w) / max(1.0 - oriGrad.w, 1e-6));
@@ -205,7 +246,8 @@ float oriAlong(vec2 a, vec2 b) { vec2 d = b - a; return clamp(dot(vOriSheet - a,
   diffuseColor.rgb *= (1.0 - g) * (1.0 - o);
 }`)
   }
-  m.customProgramCacheKey = () => 'orkami-paper'
+  const key = print ? `orkami-paper-print${print.oriGrainTex.value ? '-grain' : ''}` : 'orkami-paper'
+  m.customProgramCacheKey = () => key
   return m
 }
 
@@ -227,6 +269,27 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   const textures = new Set<Texture>()
   const grain = style.grain.on ? grainTexture(style.grain) : null
   if (grain) textures.add(grain)
+
+  // The print (D17): one set of uniforms shared by every printed front, the picture a white
+  // texel until it has loaded, each printed front's UVs its sheet points in the picture's rect
+  const printSpec = typeof options.print === 'object' ? options.print : undefined
+  let rect: Rect | undefined = printSpec ? printRect(fold.sheet) : undefined
+  const tile = grain?.image.width ?? 96
+  let printUniforms: PrintUniforms | undefined
+  if (printSpec) {
+    const blank = new DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1, RGBAFormat)
+    blank.needsUpdate = true
+    textures.add(blank)
+    printUniforms = { oriPrint: { value: blank }, oriGrainTex: { value: grain }, oriGrainScale: { value: new Vector2(rect!.w / tile, rect!.h / tile) } }
+  }
+  const printedGeometries: { g: ShapeGeometry; origin: Vector3 }[] = []
+  /** Sets a printed front's UVs from its sheet points (the geometry is in its group's frame, y up). */
+  const placeUv = (g: ShapeGeometry, origin: Vector3) => {
+    const pos = g.getAttribute('position'), uv = g.getAttribute('uv')
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, ...printUv([pos.getX(i) + origin.x, -(pos.getY(i) + origin.y)], rect!))
+    uv.needsUpdate = true
+  }
+  const WHITE: Tone = { top: '#ffffff', bottom: '#ffffff' }
 
   const printOf = (face: Face): Tone => {
     const lit = face.slot !== 'shade' && face.slot !== 'shade2'
@@ -313,20 +376,29 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
     origins.set(id, origin)
     if (face.page) continue
 
+    const frontPaint = paint?.(face, 'front')
+    // A plain face takes the picture: not a glyph's painted facet, not a face the caller paints
+    const printed = !!printUniforms && !face.slot && frontPaint === undefined
     const sideMaterial = (side: 'front' | 'back'): Material => {
       const own = paint?.(face, side)
       if (own instanceof Material) return own
       const u = uniformsFor(face, crease, origin, side)
       if (crease && occludes(crease, side)) hinged[hinged.length - 1]!.occ.push(u)
-      const m = paperMaterial(side === 'front' ? FrontSide : BackSide, side === 'front' ? grain : null, u)
+      const m = side === 'front' && printed
+        ? paperMaterial(FrontSide, null, u, printUniforms)
+        : paperMaterial(side === 'front' ? FrontSide : BackSide, side === 'front' ? grain : null, u)
       materials.add(m)
       return m
     }
-    const frontPaint = paint?.(face, 'front')
-    const frontTone = frontPaint && !(frontPaint instanceof Material) ? toTone(frontPaint) : printOf(face)
+    const frontTone = printed ? WHITE : frontPaint && !(frontPaint instanceof Material) ? toTone(frontPaint) : printOf(face)
     const backPaint = paint?.(face, 'back')
     const backTone = backPaint && !(backPaint instanceof Material) ? toTone(backPaint) : backOf()
-    const front = new Mesh(geometryOf(face, origin, frontTone), sideMaterial('front'))
+    const frontGeometry = geometryOf(face, origin, frontTone)
+    if (printed) {
+      placeUv(frontGeometry, origin)
+      printedGeometries.push({ g: frontGeometry, origin })
+    }
+    const front = new Mesh(frontGeometry, sideMaterial('front'))
     front.name = `${id}:front`
     const back = new Mesh(geometryOf(face, origin, backTone), sideMaterial('back'))
     back.name = `${id}:back`
@@ -402,6 +474,30 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
   }
   set(options.at ?? 0)
 
+  // The picture: its size places it (cover, contain), then every printed front's UVs follow
+  let disposed = false
+  let ready: Promise<void> = Promise.resolve()
+  if (printSpec && printUniforms) {
+    const u = printUniforms
+    const use = (tex: Texture) => {
+      const img = tex.image as { width?: number; height?: number } | null | undefined
+      const size = img && img.width && img.height ? { width: img.width, height: img.height } : undefined
+      rect = printRect(fold.sheet, size, printSpec.fit, printSpec.position)
+      u.oriPrint.value = tex
+      u.oriGrainScale.value.set(rect.w / tile, rect.h / tile)
+      for (const p of printedGeometries) placeUv(p.g, p.origin)
+    }
+    if (typeof printSpec.image === 'string') {
+      ready = new TextureLoader().loadAsync(printSpec.image).then((tex) => {
+        if (disposed) { tex.dispose(); return }
+        textures.add(tex)
+        use(tex)
+      })
+    } else {
+      use(printSpec.image)
+    }
+  }
+
   return {
     fold,
     style,
@@ -415,7 +511,10 @@ export function buildFold(fold: Fold, options: BuildOptions = {}): FoldHandle {
     get pose() { return current },
     get height() { return height },
     set,
+    ready,
+    get printRect() { return rect },
     dispose() {
+      disposed = true
       root.removeFromParent()
       for (const g of geometries) g.dispose()
       for (const m of materials) m.dispose()

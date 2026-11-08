@@ -6,10 +6,13 @@
 // fallback with a bleed, the fallback hidden under it, and at the landing the canvas fades out
 // over the fallback, which matches it, and the WebGL context is freed. Reduced motion, no WebGL
 // and no JavaScript all show the flat fallback. three.js is imported on the first play, so a page
-// that never plays never loads it. Emits `done` at the landing.
+// that never plays never loads it. Emits `done` at the landing. `print` prints a picture across
+// the fronts (D17; the play waits for it to load), and its flat fallback is that picture placed as
+// the paper lands it; `still` shows the flat fallback with no motion (a visitor who has seen it).
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import type { Fold } from '../core/fold.ts'
 import { named, type NamedFold } from '../core/folds/index.ts'
+import type { ImagePrint } from '../core/print.ts'
 import type { Schedule } from '../core/schedule.ts'
 import type { Style, StyleOverrides } from '../core/style.ts'
 import { wordFold } from '../glyphs/layout.ts'
@@ -29,9 +32,21 @@ const props = withDefaults(defineProps<{
   autoplay?: boolean
   /** Accessible name; empty hides it from assistive tech. */
   label?: string
-}>(), { fold: 'MASLACH', palette: undefined, style: undefined, delay: 200, duration: undefined, schedule: undefined, autoplay: true, label: '' })
+  /** A picture printed across the fronts, in sheet coordinates. */
+  print?: ImagePrint
+  /** Shows the flat fallback with no motion; `play()` still plays. */
+  still?: boolean
+}>(), { fold: 'MASLACH', palette: undefined, style: undefined, delay: 200, duration: undefined, schedule: undefined, autoplay: true, label: '', print: undefined, still: false })
 
 const emit = defineEmits<{ done: [] }>()
+
+/** The printed picture as the flat fallback: placed as the paper lands it (`printRect`'s fit and position). */
+const printStyle = computed(() => {
+  const p = props.print
+  if (!p) return undefined
+  const [x, y] = p.position ?? [0.5, 0.5]
+  return { objectFit: p.fit ?? 'cover', objectPosition: `${x * 100}% ${y * 100}%` }
+})
 
 const isNamed = (f: unknown): f is NamedFold => typeof f === 'string' && Object.prototype.hasOwnProperty.call(named, f)
 /** The word, when the fold is one. */
@@ -105,7 +120,7 @@ async function play() {
   if (!canvas.value || !playing.value) return
   try {
     const stage = three.stage(canvas.value, { width: W, height: H, bleed: [bx, by], style })
-    const handle = three.buildFold(fold, { style, palette, schedule: props.schedule })
+    const handle = three.buildFold(fold, { style, palette, schedule: props.schedule, ...(props.print ? { print: props.print } : {}) })
     stage.add(handle)
     // The drawing buffer at the canvas's rendered size: a box scaled by a transform (a lockup
     // growing into a hero) draws at the size it shows, not its layout size
@@ -114,6 +129,9 @@ async function play() {
     scene.value = { stage, handle }
   } catch { show(); return }
   const { stage, handle } = scene.value
+  // The picture loaded before the paper moves; one that fails is reported and the flat fallback shown
+  try { await handle.ready } catch (e) { console.error('Unfold3D: the print did not load', e); show(); return }
+  if (scene.value?.handle !== handle) return
   stage.render()
   await stage.play(handle, props.duration ?? handle.schedule.total)
   if (scene.value?.handle !== handle) return
@@ -125,6 +143,7 @@ async function play() {
 }
 
 onMounted(() => {
+  if (props.still) { open.value = true; return }
   if (!props.autoplay) return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { open.value = true; return }
   timer = setTimeout(() => { void play() }, props.delay)
@@ -146,6 +165,7 @@ defineExpose({ play, show, playing, open })
     <div class="ori-3d-flat" :class="{ hidden: !open }">
       <slot name="flat">
         <Word v-if="word" :text="word" :style="style" />
+        <img v-else-if="print" class="ori-3d-print" :src="print.image" alt="" :style="printStyle">
       </slot>
     </div>
     <canvas v-if="playing" ref="canvas" class="ori-3d-scene" aria-hidden="true" :style="canvasStyle" />
@@ -156,6 +176,7 @@ defineExpose({ play, show, playing, open })
 <style>
 .ori-3d { position: relative; }
 .ori-3d-flat.hidden { visibility: hidden; }
+.ori-3d-print { display: block; width: 100%; height: 100%; }
 .ori-3d-scene { position: absolute; pointer-events: none; }
 .ori-3d.landing .ori-3d-scene { opacity: 0; transition: opacity .3s ease; }
 </style>

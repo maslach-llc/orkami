@@ -20,6 +20,9 @@
       plus the crease's darkening as the fold closes (cue 8).
    6. Rest. Landed, the flaps step aside and the element's own content shows flat with the
       creases over it. Reduced motion and print show the content flat from the start.
+      A printed image (D17) is set inline by the driver on each front side and on the landed
+      host, under the grain (multiply) and under the side's tone (::after), so it is lit as
+      plain paper is.
 
    Rule: a host must not clip. overflow other than visible on it clips the paper swinging past
    its box; put the clip on a wrapper outside, or on the content inside. */
@@ -99,6 +102,9 @@
 .ori-root { --ori-ln: var(--ori-lz); }
 /* The element's own content prints at the landing; until then the root front stands for it */
 .ori-host:not(.ori-lifted):not(.is-landed) > :not(.ori-fold) { visibility: hidden; }
+/* print: 'content' (D17): a clone of the element on every front, printed on the paper; the real
+   content stays in the DOM for readers and shows at the landing */
+.ori-print-content { visibility: visible; pointer-events: none; user-select: none; }
 .ori-shade {
   position: absolute;
   inset: 0;

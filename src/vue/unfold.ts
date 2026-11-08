@@ -18,14 +18,22 @@
 //                                              scroll; `.always` folds even a block already on
 //                                              screen at hydration (otherwise left flat, so
 //                                              nothing folds away in front of the visitor)
+//   <figure v-unfold="{ hinge: 'cupboard',      a picture printed across the faces (D17), folded
+//     print: { image: url } }">                 inside the paper and unfolding out of it
+//   <figure v-unfold="{ ..., still: seen }">    already seen: mounted flat, no motion, the
+//                                              directive kept in the template
 //
 // The directive is a no-op on the server (getSSRProps) and under reduced motion; the fold is
-// applied on mount, client only, so server HTML is flat. A target must not clip (orkami.css).
+// applied on mount, client only, so server HTML is flat. A printed picture is the driver's to
+// paint, so where the directive would do nothing (reduced motion, a block on screen at
+// hydration) it mounts the picture still instead. The opening waits for the picture to decode
+// (`Handle.ready`). A target must not clip (orkami.css).
 import type { Directive } from 'vue'
 import type { Fold } from '../core/fold.ts'
 import { lift, named, type Edge, type NamedFold } from '../core/folds/index.ts'
+import { isImagePrint } from '../core/print.ts'
 import type { StyleOverrides } from '../core/style.ts'
-import { mount, type Handle, type MountOptions } from '../css/driver.ts'
+import { mount, type Handle, type MountOptions, type Print } from '../css/driver.ts'
 
 /** The seed's hinges plus every named fold. */
 export type Hinge = 'lift' | Edge | NamedFold
@@ -40,8 +48,20 @@ export interface UnfoldOptions {
   /** Opens on this turning true instead of on scroll. */
   open?: boolean
   style?: StyleOverrides
+  /** What is printed on the faces (the driver's `print`): 'landed', 'content' or `{ image }`. */
+  print?: Print
+  /** Mounts flat with no motion and never opens: a block the visitor has already seen. */
+  still?: boolean
   /** Passed to the driver's `mount`. */
-  mount?: Omit<MountOptions, 'delay' | 'style'>
+  mount?: Omit<MountOptions, 'delay' | 'style' | 'print' | 'still'>
+}
+
+/** Opens every handle once its print is ready; a picture that fails to decode is reported and the paper opens without it. */
+export function openWhenReady(handles: Handle[]): Promise<void> {
+  return Promise.all(handles.map(h => h.ready)).then(
+    () => Promise.all(handles.map(h => h.open())).then(() => {}),
+    (e: unknown) => { console.error('v-unfold: the print did not decode', e); return Promise.all(handles.map(h => h.open())).then(() => {}) },
+  )
 }
 
 export type UnfoldValue = Hinge | UnfoldOptions | undefined
@@ -105,25 +125,33 @@ export const vUnfold: Directive<HTMLElement, UnfoldValue> = {
   mounted(el, binding) {
     const win = el.ownerDocument.defaultView as Win | null
     if (!win) return
-    if (win.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const o = options(binding.value)
     const targets = binding.modifiers.stagger ? Array.from(el.children) as HTMLElement[] : [el]
     if (!targets.length) return
-
-    // Already on screen at hydration: leave it flat rather than fold it away in front of the visitor
-    const r = el.getBoundingClientRect()
-    const onScreen = r.top < win.innerHeight && r.bottom > 0
-    if (onScreen && !binding.modifiers.always) return
-
     const factory = foldFor(o.hinge)
     const step = o.step ?? 90
+    const mountAll = (still: boolean) => targets.map((t, i) => mount(t, factory, { ...o.mount, style: o.style, print: o.print, still, delay: (o.delay ?? 0) + i * step }))
+    /** Flat with no motion: the block stays bound, so it is destroyed with the element. */
+    const stillAll = () => {
+      const handles = mountAll(true)
+      bound.set(el, { handles, open: () => {}, dispose: () => { for (const h of handles) h.destroy() } })
+    }
+
+    // Reduced motion and a block already on screen at hydration are left flat rather than folded
+    // away in front of the visitor: untouched, unless a picture is printed, which only the driver paints
+    const r = el.getBoundingClientRect()
+    const onScreen = r.top < win.innerHeight && r.bottom > 0
+    const flat = !!win.matchMedia?.('(prefers-reduced-motion: reduce)').matches || onScreen && !binding.modifiers.always
+    if (o.still || flat && isImagePrint(o.print)) { stillAll(); return }
+    if (flat) return
+
     let state: 'folded' | 'open' = 'folded'
-    const handles = targets.map((t, i) => mount(t, factory, { ...o.mount, style: o.style, delay: (o.delay ?? 0) + i * step }))
+    const handles = mountAll(false)
 
     const open = () => {
       if (state === 'open') return
       state = 'open'
-      for (const h of handles) void h.open()
+      void openWhenReady(handles)
     }
     // Folding back is instant (only the opening is animated): a block folded where the visitor
     // can see it would otherwise swing half shut and back before it opens
