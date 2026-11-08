@@ -461,7 +461,7 @@ Drafted 2026-11-08 from `docs/study/04-models-in-steps.md` (doc 08), each to be 
 replaced by the doc named in it. Doc 08's plan called them D17 to D21; those numbers were taken by
 then (D17 printed faces, D18 loops), and this record is never renumbered, so they are D19 to D23.
 
-## D19 (draft, doc 09 confirms). A model is one crease pattern; a step names the creases it moves
+## D19 (confirmed by doc 09, 2026-11-08). A model is one crease pattern; a step names the creases it moves
 
 **Decision.** A model is one sheet with one crease pattern holding every crease the model ever
 makes (the union over its steps, pre-creases included), and an ordered list of steps. A step names
@@ -483,6 +483,42 @@ compiles to it (`docs/study/scripts/crane.ts`: every step's creases are segments
 different model (a driver may merge faces joined at 0 as an optimization only); a step whose start
 is not the previous step's end; a finishing angle on a page block's named fold (D1's rest states
 stay for those; the held angle is a model's, and D1's owner confirms it in doc 09).
+
+**Confirmed 2026-11-08 (doc 09), with what building it settled.** `src/core/model.ts`: `model(pattern,
+steps)` over a sound `Fold`, `Step { name, moves, schedule?, duration? }`, time `s` in `[0,
+steps.length]` (0 flat, k the end of step k) and `modelPose(m, s)` reusing `poseAngles`; the first
+model is `models.preliminaryKite` (collapse, then the two kite folds on the front flap, 12 faces).
+Four things the draft left open:
+
+- *Closable until doc 10.* A step's tree creases are interpolated from the last keyframe to their
+  targets on the step's schedule, and a D10 closure is solved only in a step that moves one of its
+  driven creases. A loop the steps close by their own targets (the kite vertex: the flap hung as a
+  packet, the kite crease in the top layer left out of the tree) is a closure with no solved
+  crease, measured and never solved. `model()` samples every step and refuses one whose
+  left-out creases come apart (it would tear the sheet), and one whose left-out crease lands at
+  another angle than the step names: doc 10's solver lifts the first refusal, not the second.
+- *A crease at 180 reads as +-180.* A keyframe keeps the sign the steps gave a crease when the
+  paper agrees with it modulo a turn; a flat-foldability check of a keyframe (`keyFold`) needs the
+  sign. Building this found the dihedral of a crease left out of the tree measured with the wrong
+  sign whenever its parent face had turned over (the posed crease compared with the flat axis);
+  it is now the hinge axis carried by the parent, as a tree hinge turns.
+- *The layer order per keyframe* (D12 generalized): every pair of faces overlapping in the folded
+  image is ordered from the paper: held apart, by height; resting on each other, by the previous
+  keyframe's order if they moved together (inverted if the pair turned over), else by the side one
+  landed from (the pose 2 percent of a step before). Layers are the longest chain from the bottom,
+  the root 0, and a tree crease's step is the child's layer over its parent's along the parent's
+  normal, which both drivers lift by. The drivers swap from one keyframe's order to the next half
+  way through the step, where the moving paper is in the air, not at the boundary: at every
+  keyframe the layers are exactly that rest state's, and the swap of a sub-pixel offset mid-air
+  cannot show.
+- *FOLD.* `modelToFOLD` and `modelFromFOLD` (`toFOLD` and `fromFOLD` keep the single fold); the
+  step's name is the frame's `frame_title`, its moves `frame_orkami:moves`, its duration
+  `frame_orkami:duration`; a diagrams file from elsewhere is read by the creases whose fold angle
+  changes from frame to frame.
+
+The finishing step with held angles is allowed by this record and built in by the time model, but
+no model has one yet (the crane's wings are doc 13): D1's owner is asked to confirm it with doc
+09's attended check, and D1 stands unamended until then.
 
 ## D20 (draft, doc 10 confirms). The general closure: Tachi's loop constraint, followed along its null space
 

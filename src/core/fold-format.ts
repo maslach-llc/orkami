@@ -10,9 +10,10 @@ import {
   assertValid, onSegment, sign, tolerance,
   type Assignment, type Closure, type Crease, type CreaseId, type Face, type FaceId, type Fold, type Sheet, type Slot, type Suits,
 } from './fold.ts'
+import { model, modelPose, type Model, type Step } from './model.ts'
 import { pose } from './pose.ts'
 import { BASE, type Schedule } from './schedule.ts'
-import type { Vec3 } from './space.ts'
+import { transform, type Vec3 } from './space.ts'
 import { hingeTree } from './tree.ts'
 
 export interface FOLD {
@@ -457,4 +458,106 @@ export function fromFOLD(json: FOLD, options: FromFOLDOptions = {}): Fold {
   if (Object.keys(extra).length) fold.extra = extra
 
   return assertValid(fold)
+}
+
+// ---------------------------------------------------------------------------------------------
+// Models (D19): the crease pattern as the key frame, one `foldedForm` frame per step end
+
+const DEG = 180 / Math.PI
+
+/** A model as a FOLD file of class `diagrams`: the pattern as the `creasePattern` key frame and one `foldedForm` child frame per step's end, each inheriting from the previous (`frame_parent`, `frame_inherit`) and carrying that keyframe's fold angles, assignments, layer order and 3D vertices, the step's name as `frame_title` and its moves under `frame_orkami:` keys. */
+export function modelToFOLD(m: Model): FOLD {
+  const { steps: _s, keys: _k, stacks: _st, ...pattern } = m
+  const out = toFOLD(pattern)
+  const coords = out.vertices_coords!
+  const faces_vertices = out.faces_vertices!
+  const edgeCrease = out['edges_orkami:id'] as (CreaseId | null)[]
+  const faceIndex = new Map(m.faces.map((f, i) => [f.id, i]))
+  const tree = hingeTree(m)
+  // A vertex is placed by the first face that has it
+  const owner: number[] = coords.map(() => -1)
+  faces_vertices.forEach((fv, fi) => { for (const v of fv) if (owner[v] === -1) owner[v] = fi })
+  const frames: FOLD[] = m.steps.map((step, i) => {
+    const k = i + 1
+    const key = m.keys[k]!
+    const p = modelPose(m, k, tree)
+    const stack = m.stacks[k]!
+    const frame: FOLD = {
+      frame_title: step.name,
+      frame_classes: ['foldedForm'],
+      frame_attributes: ['3D'],
+      frame_parent: i,
+      frame_inherit: true,
+      vertices_coords: coords.map((c, v) => {
+        const f = m.faces[owner[v]!]
+        const q = f ? transform(p.faces[f.id]!.matrix, [c[0]!, c[1]!, 0]) : [c[0]!, c[1]!, 0]
+        return [q[0]!, q[1]!, q[2]!]
+      }),
+      edges_assignment: (out.edges_assignment ?? []).map((a, e) => {
+        const id = edgeCrease[e]
+        if (!id) return a
+        const angle = key[id] ?? 0
+        return Math.abs(angle) < 1e-9 ? 'F' : angle > 0 ? 'V' : 'M'
+      }),
+      edges_foldAngle: edgeCrease.map(id => id ? (key[id] ?? 0) * DEG : 0),
+      // [f, g, s]: f lies on the side of g's normal (s = 1) or behind it (s = -1)
+      faceOrders: stack.over.map(([a, b]): [number, number, number] => [faceIndex.get(a)!, faceIndex.get(b)!, stack.up[b] ?? 1]),
+      'frame_orkami:moves': { ...step.moves },
+      'frame_orkami:duration': step.duration,
+      ...(step.schedule ? { 'frame_orkami:schedule': Object.fromEntries(Object.entries(step.schedule).map(([id, e]) => [id, { start: e.start, duration: e.duration }])) } : {}),
+    }
+    return frame
+  })
+  return { ...out, file_classes: ['diagrams'], file_frames: frames }
+}
+
+/** A model from a FOLD file of steps: the pattern from its `creasePattern` frame (`fromFOLD`), one step per `foldedForm` frame in the chain of `frame_parent`s, its moves from `frame_orkami:moves` or, in a file from elsewhere, the creases whose fold angle differs from the parent frame's. */
+export function modelFromFOLD(json: FOLD, options: FromFOLDOptions = {}): Model {
+  const pattern = fromFOLD(json, options)
+  const frames = resolveFrames(json)
+  const edgeIds = frames[0]!['edges_orkami:id']
+  const byEdge = new Map<number, CreaseId>()
+  if (isArray(edgeIds)) edgeIds.forEach((id, e) => { if (typeof id === 'string') byEdge.set(e, id) })
+  else {
+    // A foreign file: match edges to the imported creases by their endpoints
+    const coords = (frames[0]!.vertices_coords ?? []) as number[][]
+    const tol = tolerance(pattern)
+    ;(frames[0]!.edges_vertices ?? []).forEach(([u, v], e) => {
+      const a: Pt = [coords[u]![0]!, coords[u]![1]!], b: Pt = [coords[v]![0]!, coords[v]![1]!]
+      const c = pattern.creases.find(c => (same(c.a, a, tol) && same(c.b, b, tol)) || (same(c.a, b, tol) && same(c.b, a, tol)))
+      if (c) byEdge.set(e, c.id)
+    })
+  }
+  // The step frames: foldedForm frames, each the child of the one before, starting at the key frame
+  const steps: Step[] = []
+  let parent = 0
+  let prev: Record<CreaseId, number> = Object.fromEntries(pattern.creases.map(c => [c.id, 0]))
+  for (;;) {
+    const i = frames.findIndex((f, j) => j > 0 && f.frame_parent === parent && isArray(f.frame_classes) && f.frame_classes.includes('foldedForm'))
+    if (i < 0) break
+    const raw = json.file_frames![i - 1]!
+    const f = frames[i]!
+    const own = raw['frame_orkami:moves']
+    let moves: Record<CreaseId, number>
+    if (own && typeof own === 'object') moves = Object.fromEntries(Object.entries(own as Record<string, unknown>).map(([id, a]) => [id, Number(a)]))
+    else {
+      moves = {}
+      const angles = f.edges_foldAngle ?? []
+      angles.forEach((a, e) => {
+        const id = byEdge.get(e)
+        if (!id || a === null || a === undefined) return
+        const r = a / DEG
+        if (Math.abs(r - (prev[id] ?? 0)) > 1e-9) moves[id] = r
+      })
+    }
+    const step: Step = { name: typeof f.frame_title === 'string' ? f.frame_title : `step ${steps.length + 1}`, moves }
+    const duration = raw['frame_orkami:duration']
+    if (typeof duration === 'number') step.duration = duration
+    const sched = raw['frame_orkami:schedule']
+    if (sched && typeof sched === 'object') step.schedule = Object.fromEntries(Object.entries(sched as Record<string, { start: number; duration: number }>).map(([id, e]) => [id, { start: Number(e.start), duration: Number(e.duration) }]))
+    steps.push(step)
+    prev = { ...prev, ...moves }
+    parent = i
+  }
+  return model(pattern, steps)
 }

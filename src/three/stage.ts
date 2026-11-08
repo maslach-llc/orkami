@@ -3,7 +3,8 @@
 // 3 and 4; D5, D14, D15). `stage(canvas, { width, height })` frames a sheet of that size with a bleed
 // around it (a flap swinging about its crease reaches past the box); `add(handle)` puts a
 // `buildFold` handle on it, centered; `play(handle)` runs the handle's t on
-// requestAnimationFrame, the schedule's easing being applied per crease by `pose()`.
+// requestAnimationFrame, the schedule's easing being applied per crease by `pose()`;
+// `model(m)` builds a model (D19) once and plays its s, step by step, at the steps' own pace.
 //
 // The light is the style's direction (page coordinates, toward the light) with ka and kd as the
 // ambient and directional intensities (times pi: three's Lambert divides by it), and the canvas
@@ -28,11 +29,12 @@ import {
 } from 'three'
 import type { Fold } from '../core/fold.ts'
 import type { Loop } from '../core/loop.ts'
+import { modelTime, type Model } from '../core/model.ts'
 import { pose } from '../core/pose.ts'
 import { together, type Schedule } from '../core/schedule.ts'
 import { penumbra, shadowAt, style as makeStyle, type Style, type StyleOverrides } from '../core/style.ts'
 import { contactMaterial, contactUniforms } from './contact.ts'
-import { buildFold, type BuildOptions, type FoldHandle } from './scene.ts'
+import { buildFold, buildModel, type BuildOptions, type FoldHandle, type ModelBuildOptions, type ModelHandle } from './scene.ts'
 
 export interface StageOptions {
   /** The sheet's size in sheet units (px): what the canvas frames, plus the bleed. */
@@ -75,8 +77,32 @@ export interface Stage {
   stop(): void
   /** Plays a loop (D18): each step built with `buildFold`, driven by `set(t)` and rendered every frame, the groups rebuilt at the flat swap between steps. Starts at once. The loop's sheet must be the stage's. */
   loop(loop: Loop, options?: StageLoopOptions): StageLoop
-  /** Disposes the renderer (when the stage made it), the floor and the shadow map, and destroys a running loop; the handles are their own. */
+  /** Puts a model (D19) on the stage: built once with `buildModel`, at `options.at` (0, flat, by default), played step by step with the returned `play`. The model's sheet must be the stage's. */
+  model(model: Model, options?: StageModelOptions): StageModel
+  /** Disposes the renderer (when the stage made it), the floor and the shadow map, and destroys a running loop or model; the handles are their own. */
   dispose(): void
+}
+
+export interface StageModelOptions extends ModelBuildOptions {
+  /** A multiplier on every step's duration, as the CSS driver's: 4 plays four times as slow (the playground's slow toggle), 0.5 twice as fast. 1 by default. */
+  pace?: number
+  /** The clock, ms; `performance.now` by default (a test passes a fake). */
+  now?: () => number
+}
+
+export interface StageModel {
+  readonly handle: ModelHandle
+  /** The model's s: 0 the flat sheet, k the end of step k. */
+  readonly s: number
+  readonly playing: boolean
+  /** Puts the model at s and renders, cancelling a running play. */
+  set(s: number): void
+  /** Runs s from `from` (the current s by default) to `to` (the last step's end by default), each step at its own duration over the pace, or linearly over `duration` ms when given; resolves on arrival. Under reduced motion it jumps. A new play, set or stop cancels it, resolving it where it stands. */
+  play(from?: number, to?: number, duration?: number): Promise<void>
+  /** Stops a running play where it is. */
+  stop(): void
+  /** Cancels a play, removes and disposes the handle. */
+  destroy(): void
 }
 
 export interface StageLoopOptions extends BuildOptions {
@@ -150,6 +176,9 @@ export function shadowSoftness(height: number, s: Style): number {
   return penumbra(height, s).sigma
 }
 
+/** What the stage needs of a handle it draws, a fold's or a model's: its root and how high it reaches. */
+type Drawn = Pick<FoldHandle, 'root' | 'height'>
+
 export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: StageOptions): Stage {
   const style = makeStyle(options.style as StyleOverrides | undefined)
   const W = options.width, H = options.height
@@ -207,7 +236,7 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   const contact = contactUniforms(style)
   contact.oriShadowRange.value = light.shadow.camera.far - light.shadow.camera.near
   if (!pcf) contactMaterial(floor.material as ShadowMaterial, contact)
-  const receive = (handle: FoldHandle) => {
+  const receive = (handle: Drawn) => {
     if (pcf) return
     handle.root.traverse((o) => {
       const m = o as Mesh
@@ -219,7 +248,7 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
   const content = new Group()
   content.position.set(-W / 2, H / 2, 0)
   scene.add(content)
-  const handles = new Set<FoldHandle>()
+  const handles = new Set<Drawn>()
   const texel = (2 * ext) / size
   contact.oriShadowTexel.value = texel
 
@@ -352,6 +381,85 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
     return self
   }
 
+  const models = new Set<StageModel>()
+  const showModel = (m: Model, options: StageModelOptions = {}): StageModel => {
+    const { now: clock, pace = 1, ...build } = options
+    const time = clock ?? now
+    if (m.sheet.width !== W || m.sheet.height !== H) throw new Error(`the model's sheet is ${m.sheet.width} x ${m.sheet.height}, the stage's ${W} x ${H}`)
+    if (!(pace > 0)) throw new Error(`the pace must be positive, not ${pace}`)
+    // Built once: every step is the same faces on the same hinge tree, only the angles change
+    const handle = buildModel(m, build)
+    const end = m.steps.length
+    const clamp = (s: number) => Math.min(end, Math.max(0, s))
+    handles.add(handle)
+    receive(handle)
+    content.add(handle.root)
+    render()
+    // Its own frame, not the stage's: a model playing does not stop a fold the stage plays beside it
+    let frame = 0
+    let wait: ReturnType<typeof setTimeout> | undefined
+    let pending: (() => void) | undefined
+    let alive = true
+    const next = (fn: () => void) => {
+      if (win?.requestAnimationFrame) frame = win.requestAnimationFrame(fn)
+      else wait = setTimeout(fn, 16)
+    }
+    const cancel = () => {
+      if (frame && win?.cancelAnimationFrame) win.cancelAnimationFrame(frame)
+      if (wait) clearTimeout(wait)
+      frame = 0
+      wait = undefined
+      const p = pending
+      pending = undefined
+      p?.()
+    }
+    const self: StageModel = {
+      handle,
+      get s() { return handle.s },
+      get playing() { return pending !== undefined },
+      set(s) {
+        cancel()
+        handle.set(clamp(s))
+        render()
+      },
+      play(from = handle.s, to = end, duration) {
+        cancel()
+        const a = clamp(from), b = clamp(to)
+        return new Promise<void>((resolve) => {
+          if (!alive) { resolve(); return }
+          if (reduced() || a === b) { handle.set(b); render(); resolve(); return }
+          handle.set(a)
+          render()
+          const t0 = time()
+          pending = resolve
+          // At the steps' own pace each step takes its own duration (a long flap slower than a short one, D4); a given
+          // duration is linear in s, for a caller that keeps time with something else
+          const tick = () => {
+            const ms = time() - t0
+            const x = duration === undefined ? 0 : Math.min(1, ms / Math.max(1, duration))
+            const s = duration === undefined ? modelTime(m, a, b, ms / pace) : x >= 1 ? b : a + (b - a) * x
+            handle.set(s)
+            render()
+            if (s === b) { frame = 0; wait = undefined; pending = undefined; resolve(); return }
+            next(tick)
+          }
+          next(tick)
+        })
+      },
+      stop: cancel,
+      destroy() {
+        cancel()
+        alive = false
+        models.delete(self)
+        handles.delete(handle)
+        content.remove(handle.root)
+        handle.dispose()
+      },
+    }
+    models.add(self)
+    return self
+  }
+
   return {
     renderer,
     scene,
@@ -372,9 +480,11 @@ export function stage(canvas: HTMLCanvasElement | OffscreenCanvas, options: Stag
     play,
     stop,
     loop: playLoop,
+    model: showModel,
     dispose() {
       stop()
       for (const l of [...loops]) l.destroy()
+      for (const x of [...models]) x.destroy()
       for (const h of handles) content.remove(h.root)
       handles.clear()
       floor.geometry.dispose()

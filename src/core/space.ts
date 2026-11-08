@@ -68,4 +68,15 @@ export function rotation(point: Vec3, axis: Vec3, angle: number): Mat4 {
   return [r[0]!, r[1]!, r[2]!, 0, r[3]!, r[4]!, r[5]!, 0, r[6]!, r[7]!, r[8]!, 0, tx, ty, tz, 1]
 }
 
-export const isIdentity = (m: Mat4, eps = 1e-9) => m.every((v, i) => Math.abs(v - IDENTITY4[i]!) < eps)
+/** The inverse of a rigid transform (a rotation and a translation): the transposed rotation, the translation taken back through it. */
+export function invertRigid(m: Mat4): Mat4 {
+  const r = [m[0]!, m[1]!, m[2]!, m[4]!, m[5]!, m[6]!, m[8]!, m[9]!, m[10]!]
+  const t = [m[12]!, m[13]!, m[14]!]
+  // out's rotation is r transposed: column i of out is row i of r
+  const tx = -(r[0]! * t[0]! + r[1]! * t[1]! + r[2]! * t[2]!)
+  const ty = -(r[3]! * t[0]! + r[4]! * t[1]! + r[5]! * t[2]!)
+  const tz = -(r[6]! * t[0]! + r[7]! * t[1]! + r[8]! * t[2]!)
+  return [r[0]!, r[3]!, r[6]!, 0, r[1]!, r[4]!, r[7]!, 0, r[2]!, r[5]!, r[8]!, 0, tx, ty, tz, 1]
+}
+
+export const isIdentity =(m: Mat4, eps = 1e-9) => m.every((v, i) => Math.abs(v - IDENTITY4[i]!) < eps)

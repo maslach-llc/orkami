@@ -21,6 +21,7 @@ One line per export; the file each lives in is the heading.
 - `vec`, `add`, `sub`, `scale`, `dot`, `cross3`, `length`, `normalize`.
 - `multiply(a, b)`: a after b. `transform(m, v)` a point; `transformDir(m, v)` a direction.
 - `rotation(point, axis, angle)`: the rotation about the line through `point` along `axis`.
+- `invertRigid(m)`: the inverse of a rotation and a translation.
 - `isIdentity(m, eps)`.
 
 ## fold.ts: the model
@@ -63,8 +64,24 @@ One line per export; the file each lives in is the heading.
 - `closedPose(fold)`: `pose(fold, 0)`.
 - `poseAngles(fold, angles)`: the pose for explicit signed angles by crease id (closing creases' angles are measured, not taken).
 - `hingeAxis(fold, crease)`: the crease's axis through `a`, oriented so a positive angle lifts the child toward the visitor.
-- `dihedral(fold, crease, faces)`: the signed angle between a crease's two faces in a pose.
+- `dihedral(fold, crease, faces)`: the signed angle between a crease's two faces in a pose, about the hinge axis as the parent carries it (right when the parent has turned over).
+- `solveClosure(fold, closure, angles, tree?)`: solves a closure's shared magnitude in `angles` by bisection (D10); a closure with no solved crease is left alone (a model's loop its steps close, D19).
 - `flatBack(fold, creaseId)`: the `Affine` that says where the child's content lands folded flat over that crease, composed down the tree: the CSS driver paints the back with the sheet under this map (02, cue 2).
+
+## model.ts: a model folded in steps (D19)
+
+- `Step`: `{ name, moves, schedule?, duration? }`: the creases the step moves, each to its signed target angle (radians, valley positive, in [-pi, pi]); every other crease holds. `schedule` gives a moved crease its `{ start, duration }` as fractions of the step (all over the whole step by default, on `paper`); `duration` the step's ms at the default pace (default: `creaseDuration` of the farthest flap it moves). `ModelStep`: a step with its duration resolved.
+- `Model`: a `Fold` (the one crease pattern, every crease the model makes) plus `steps`, `keys` (every crease's signed angle at each keyframe: 0 the flat sheet, k the end of step k) and `stacks` (the `ModelStack` at each keyframe).
+- `model(pattern, steps)`: builds and checks a model: the pattern is sound; every step's creases exist and its targets are in range; at sampled progress through every step the faces stay joined at every crease left out of the tree (else it throws "tears the sheet": the moving set is not a tree or a D10 base, until the general solver); a left-out crease a step names lands at its target. A D10 closure is solved in the steps that move its driven creases; a closure with no solved crease is closed by the steps' own targets.
+- `modelPose(m, s)`: the `Pose` at s in `[0, steps.length]`: the step is `ceil(s) - 1`, its progress the fraction; the tree angles interpolate from the last keyframe to the step's targets on its schedule. `s = 0` flat; a keyframe is the steps' accumulated angles; continuous at every boundary. Reversed s is the unfold. `modelAngles(m, s)`: the angles alone (tree creases and solved closures). `stepAt(m, s)`: `{ step, x }`.
+- `ModelStack`: a `StackOrder` (`layer`, `up`, `step`, as D12) plus `over`, the overlapping pairs, first over second. Read from the paper per keyframe: held apart by height, at rest by the previous keyframe's order for a pair that moved together (inverted if it turned over), else by the side one landed from. `modelStack(m, s)`: the stack of `keyAt(m, s)`, the nearer keyframe, so a driver swaps orders half way through a step.
+- `keyFold(m, k)`: keyframe k as a `Fold`, each crease's assignment from its angle there (F at 0), for `flatFoldable`. `creasesMade(m, k)`: the creases folded at some keyframe up to k (a crease exists from the step that makes it). `jointGap(fold, pose)`: the worst distance between where a crease's two faces put its ends, and which crease.
+- `modelDuration(m, from?, to?)`: ms between two s values at the steps' pace. `modelTime(m, from, to, ms)`: s after `ms` of play from `from` toward `to`, each step at its own duration.
+
+## models/: the models (D19)
+
+- `preliminaryKite(size = 240)`: the square collapsed to the preliminary base (D10's coupled motion), then the kite fold on the right and the left of the front flap (each through its two layers, the flap hung as a packet). 12 faces, 14 creases, 3 steps; the crease pattern is drawn in the file's header. `preliminaryKitePattern(size)` and `preliminaryKiteSteps()` give its parts.
+- `models`: `{ preliminaryKite }`, factories from the square's side; `NamedModel` their names.
 
 ## loop.ts: a fold that loops (D18)
 
@@ -119,6 +136,8 @@ One line per export; the file each lives in is the heading.
 - `toFOLD(fold)`: spec 1.2, `file_creator: "orkami"`, `creasePattern` 2D frame with `vertices_coords`, `edges_vertices`, `edges_assignment` (M, V, F, B, U), `edges_foldAngle` (degrees, signed), `faces_vertices`, `faceOrders` (the closed state's parent-child stacking), one `foldedForm` child frame with the closed pose's 3D coordinates, and orkami's own data under `faces_orkami:id/parent/slot/page`, `edges_orkami:id/closing/start/duration`, `frame_orkami:total/sheet/suits/closures`. `fold.extra` is spread under it. A crease endpoint inside another face's edge is inserted as a vertex (T-junctions, the glyphs' strips).
 - `fromFOLD(json, { root? })`: resolves `file_frames` inheritance, takes the first `creasePattern` frame, builds faces and creases (assignment from `edges_assignment`, else the sign of `edges_foldAngle`; `closed` from the angle, else pi), the tree from `faces_orkami:parent` or breadth first from `root` (face 0 by default), non-tree creases as closing creases, closures from the orkami key (else a solver-less closure that only reports the dihedral), the schedule and sheet from the orkami keys (else the vertices' extent). Unknown keys land in `extra`. Throws on `C`/`J` edges, an unassigned interior edge, or a 3D frame that is not a crease pattern. A `foldedForm` child frame is not read: the closed state is the angles.
 - `fromFOLD(toFOLD(fold))` equals `fold` for every named fold.
+- `modelToFOLD(m)`: a model as `file_classes: ["diagrams"]`: the pattern as the `creasePattern` key frame (as `toFOLD`), then one `foldedForm` 3D frame per step end, frame k's `frame_parent` k - 1 with `frame_inherit: true`, carrying that keyframe's `vertices_coords`, `edges_assignment`, `edges_foldAngle` (degrees) and `faceOrders` (from the stack's `over`), the step's name as `frame_title`, its moves under `frame_orkami:moves` (radians), `frame_orkami:duration` and `frame_orkami:schedule`.
+- `modelFromFOLD(json, { root? })`: the pattern by `fromFOLD`, then one step per `foldedForm` frame along the chain of `frame_parent`s; a frame without `frame_orkami:moves` (a file from elsewhere) moves the creases whose `edges_foldAngle` differs from its parent's. Rebuilt with `model()`, so it is checked the same way. `modelFromFOLD(modelToFOLD(m))` has `m`'s steps, keyframes and layers.
 
 ## folds/: the named folds (D7)
 

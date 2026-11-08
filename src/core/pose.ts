@@ -7,7 +7,7 @@ import { compose, direction, reflect, type Affine, type Pt } from './affine.ts'
 import { crease as creaseOf, cross, face as faceOf, sign, treeCreases, type Closure, type Crease, type CreaseId, type FaceId, type Fold } from './fold.ts'
 import { faceNormal } from './light.ts'
 import { together, angleAt, type Schedule } from './schedule.ts'
-import { cross3, dot, IDENTITY4, multiply, normalize, rotation, sub, transform, type Mat4, type Vec3 } from './space.ts'
+import { cross3, dot, IDENTITY4, multiply, normalize, rotation, transform, transformDir, type Mat4, type Vec3 } from './space.ts'
 import { hingeTree, type HingeTree } from './tree.ts'
 
 /** One hinge of a face's chain, in the parent's flat frame (sheet coordinates): a driver nests a rotation about `axisDir` through `axisPoint` by `angle` inside the parent's transform. */
@@ -80,10 +80,10 @@ export function poseAngles(fold: Fold, angles: Record<CreaseId, number>, tree: H
 export function dihedral(fold: Fold, c: Crease, faces: Pose['faces']): number {
   const p = faces[c.parent], ch = faces[c.child]
   if (!p || !ch) return 0
-  const axis = hingeAxis(fold, c)
-  const u = normalize(sub(transform(p.matrix, [c.b[0], c.b[1], 0]), transform(p.matrix, [c.a[0], c.a[1], 0])))
-  const flip = dot(u, axis.dir) < 0 ? -1 : 1
-  const ax: Vec3 = [u[0] * flip, u[1] * flip, u[2] * flip]
+  // The hinge axis carried by the parent, as a tree hinge's rotation is applied in the parent's
+  // frame: comparing the posed crease with the flat axis instead read a turned-over parent's
+  // crease backwards and gave the angle the wrong sign
+  const ax = normalize(transformDir(p.matrix, hingeAxis(fold, c).dir))
   return Math.atan2(dot(cross3(p.normal, ch.normal), ax), dot(p.normal, ch.normal))
 }
 
@@ -106,8 +106,9 @@ function drivenFraction(fold: Fold, cl: Closure, angles: Record<CreaseId, number
   return driven.reduce((s, c) => s + Math.abs(angles[c.id] ?? 0) / c.closed, 0) / driven.length
 }
 
-/** Solve a closure's shared magnitude by bisection on [0, pi] and write the solved creases' signed angles. */
-function solve(fold: Fold, cl: Closure, angles: Record<CreaseId, number>, tree: HingeTree): void {
+/** Solve a closure's shared magnitude by bisection on [0, pi] and write the solved creases' signed angles. A closure with no solved crease (a model's loop that its steps close by their own targets, D19) is left as it is. */
+export function solveClosure(fold: Fold, cl: Closure, angles: Record<CreaseId, number>, tree: HingeTree = hingeTree(fold)): void {
+  if (!cl.solved.length) return
   const set = (s: number) => { for (const id of cl.solved) angles[id] = sign(creaseOf(fold, id).assignment) * s }
   const at = (s: number) => { set(s); return gap(fold, cl, angles, tree) }
   const eps = 1e-12 * Math.max(fold.sheet.width, fold.sheet.height, 1)
@@ -141,7 +142,7 @@ export function pose(fold: Fold, t: number, schedule: Schedule = fold.schedule ?
   const tree = hingeTree(fold)
   const angles: Record<CreaseId, number> = {}
   for (const c of treeCreases(fold)) angles[c.id] = angleAt(fold, c.id, schedule, t)
-  for (const cl of fold.closures ?? []) solve(fold, cl, angles, tree)
+  for (const cl of fold.closures ?? []) solveClosure(fold, cl, angles, tree)
   return poseAngles(fold, angles, tree, t)
 }
 

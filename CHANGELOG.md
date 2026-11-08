@@ -7,6 +7,21 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ### Added
 
+- Models folded in steps (D19): `model(pattern, steps)` in `src/core/model.ts` holds one crease
+  pattern and a list of steps, each naming the creases it moves and their target angles, every
+  other crease holding; `modelPose(m, s)` with s from 0 (the flat sheet) to `steps.length` (the
+  finished model), each step starting where the last stopped, read backwards to unfold. Each
+  keyframe has a layer order read from the paper (`modelStack`), `keyFold` for the
+  flat-foldability checks, `creasesMade`, `modelDuration` and `modelTime` for the pace.
+- The first model, `models.preliminaryKite(size)`: the preliminary base and the two kite folds on
+  its front flap, the crane's opening.
+- `modelToFOLD` / `modelFromFOLD`: a model as a FOLD `diagrams` file, the crease pattern as the
+  key frame and one inheriting `foldedForm` frame per step end.
+- `mountModel(el, model)` in the CSS driver, `buildModel` and `stage.model(model)` in the WebGL
+  driver: `set(s)` and `play(from, to, duration?)` at the steps' own pace, the layer order swapping
+  half way through a step; `<FoldModel :model :step>` in the Vue adapter.
+- The playground's Models page: a step scrubber, the step list, a slow toggle, the crease pattern
+  made so far and every crease's angle and layer step.
 - Printed faces (D17): `print: { image, fit?, position? }` on the CSS driver's `mount` and the
   WebGL driver's `buildFold` prints a picture across every front in sheet coordinates, so it is
   folded inside the paper and the faces join into the whole picture when flat; the backs stay the
@@ -37,6 +52,11 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
   button that shows the stop landing flat, and the slow toggle.
 - The study's section 5 (loops: paper folding itself) and decision D18 (a loop is a sequence of
   real folds that meet at flat; stop lands flat).
+
+### Fixed
+
+- `dihedral` (the measured angle of a crease left out of the hinge tree) had the wrong sign when
+  the crease's parent face had turned over; it now uses the hinge axis as the parent carries it.
 
 ## [0.1.2] - 2026-11-05
 
