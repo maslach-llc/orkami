@@ -11,7 +11,7 @@ a crease it shares with its parent and never changes shape. Nothing scales, slid
 in place of folding; a fold that would tear the sheet is refused, not drawn.
 
 ```bash
-npm install github:maslach-llc/orkami#v0.1.2
+npm install github:maslach-llc/orkami#v0.2.0
 ```
 
 `vue` and `three` are optional peers: install them only for the entries that use them.

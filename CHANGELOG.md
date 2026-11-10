@@ -5,6 +5,8 @@ versions follow [semantic versioning](https://semver.org/) (before 1.0, a minor 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-10
+
 ### Added
 
 - Models folded in steps (D19): `model(pattern, steps)` in `src/core/model.ts` holds one crease
@@ -156,7 +158,8 @@ The first release: the engine, two drivers, the Vue adapter and the playground.
 - The study (`docs/study/`), the vocabulary and decisions D1 to D16 (`docs/design/`), and the API
   reference (`docs/api/`).
 
-[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/maslach-llc/orkami/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/maslach-llc/orkami/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/maslach-llc/orkami/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/maslach-llc/orkami/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/maslach-llc/orkami/releases/tag/v0.1.0
